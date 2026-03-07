@@ -1,14 +1,24 @@
 // オートコンプリート機能
+console.log('autocomplete.js loaded');
+
 document.addEventListener('DOMContentLoaded', function() {
+    console.log('DOMContentLoaded fired');
+    
     // ヘッダーの検索入力
     const headerInput = document.getElementById('search-input');
-    // ホームページの検索入力
-    const homeInput = document.querySelector('input[name="q"]:not(#search-input)');
+    console.log('headerInput element:', headerInput);
+    
+    // ホームページの検索入力を探す
+    const allQInputs = document.querySelectorAll('input[name="q"]');
+    console.log('All inputs with name="q":', allQInputs);
     
     // 両方の検索入力に対して処理
-    const inputs = [headerInput, homeInput].filter(Boolean);
+    const inputs = Array.from(allQInputs);
+    console.log('Processing inputs:', inputs.length);
     
-    inputs.forEach(input => {
+    inputs.forEach((input, idx) => {
+        console.log(`Setting up autocomplete for input ${idx}:`, input);
+        
         // 候補箱を作成
         const suggestBox = document.createElement('div');
         suggestBox.className = 'suggest-box';
@@ -16,11 +26,14 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // 親要素に相対位置を設定
         let container = input.parentElement;
+        console.log('Parent container:', container);
+        
         if (container && container.style.position !== 'relative') {
             container.style.position = 'relative';
         }
         
         container.appendChild(suggestBox);
+        console.log('suggestBox appended to container');
         
         let timeout;
         
@@ -29,9 +42,10 @@ document.addEventListener('DOMContentLoaded', function() {
             clearTimeout(timeout);
             
             const query = this.value.trim();
-            console.log('検索入力:', query, '要素:', input.id || input.name);
+            console.log('入力イベント:', query, '要素ID:', input.id, '名前:', input.name);
             
             if (query.length < 2) {
+                console.log('入力が2文字未満、ボックスを隠す');
                 suggestBox.style.display = 'none';
                 return;
             }
@@ -61,9 +75,10 @@ document.addEventListener('DOMContentLoaded', function() {
                     }
                     
                     // 候補がない場合でもボックスを表示（動作確認用）
+                    console.log('Suggestions array:', suggestions);
+                    
                     if (!suggestions || suggestions.length === 0) {
                         console.log('候補がありません - 空のボックスを表示');
-                        suggestions = [];
                         // 空のボックスを表示して動作を確認
                         suggestBox.innerHTML = '<div style="padding: 10px 20px; color: #999; text-align: center;">検索中...</div>';
                     } else {
