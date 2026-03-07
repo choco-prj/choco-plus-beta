@@ -591,6 +591,71 @@ def channel(channel_id):
     
     return render_template('channel.html', channel=channel, videos=videos, shorts=shorts)
 
+@app.route('/api/channel/<channel_id>/more')
+def channel_more(channel_id):
+    video_type = request.args.get('type', 'videos')
+    offset = request.args.get('offset', 0, type=int)
+    
+    all_videos = []
+    
+    try:
+        uploads_playlist_id = f"UU{channel_id[2:]}"
+        
+        for key in YOUTUBE_API_KEYS:
+            try:
+                url = f"https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&playlistId={uploads_playlist_id}&maxResults=50&startIndex={offset+1}&key={key}"
+                response = requests.get(url, timeout=5)
+                if response.status_code == 200:
+                    data = response.json()
+                    video_ids = []
+                    for item in data.get('items', []):
+                        try:
+                            v_id = item['snippet']['resourceId']['videoId']
+                            video_ids.append(v_id)
+                            all_videos.append({
+                                'id': v_id,
+                                'title': item['snippet']['title'],
+                                'published': item['snippet']['publishedAt'][:10] if 'publishedAt' in item['snippet'] else '',
+                                'views': '0',
+                                'length': '',
+                                'is_short': False
+                            })
+                        except KeyError:
+                            continue
+                    
+                    if video_ids:
+                        try:
+                            details_url = f"https://www.googleapis.com/youtube/v3/videos?part=contentDetails&id={','.join(video_ids)}&key={key}"
+                            details_response = requests.get(details_url, timeout=5)
+                            if details_response.status_code == 200:
+                                details_data = details_response.json()
+                                details_map = {item['id']: item for item in details_data.get('items', [])}
+                                for video in all_videos:
+                                    if video['id'] in details_map:
+                                        duration_str = details_map[video['id']].get('contentDetails', {}).get('duration', '')
+                                        video['length'] = parse_iso8601_duration(duration_str)
+                                        duration = parse_duration_to_seconds(duration_str)
+                                        video['is_short'] = duration <= 60
+                        except:
+                            pass
+                    break
+            except Exception as e:
+                print(f"Error fetching more videos: {e}")
+                continue
+        
+        # Filter by type
+        result_videos = []
+        for video in all_videos:
+            if video_type == 'videos' and not video['is_short']:
+                result_videos.append(video)
+            elif video_type == 'shorts' and video['is_short']:
+                result_videos.append(video)
+        
+        return jsonify({'videos': result_videos})
+    except Exception as e:
+        print(f"Error in channel_more: {e}")
+        return jsonify({'videos': []})
+
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port)
