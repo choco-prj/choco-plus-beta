@@ -8,7 +8,7 @@
         :root {
             --bg-color: #121212;
             --text-color: #fff;
-            --accent-color: #6a4c93;
+            --accent-color: #fa9d5a;
             --header-bg: #1e1e1e;
             --card-bg: #2a2a2a;
             --hover-bg: #383838;
@@ -191,6 +191,34 @@
         <a href="/trend" class="{{ 'active' if request.path == '/trend' }}">🔥<span>トレンド</span></a>
     </div>
 
+    <script>
+        // Restore preferences from cookies and update form/UI elements
+        document.addEventListener('DOMContentLoaded', function() {
+            const proxyCookie = document.cookie.split('; ').find(row => row.startsWith('proxy_type='));
+            const modeCookie = document.cookie.split('; ').find(row => row.startsWith('search_mode='));
+            
+            if (proxyCookie) {
+                const proxyValue = proxyCookie.split('=')[1];
+                const proxySelects = document.querySelectorAll('select[onchange*="proxy"]');
+                proxySelects.forEach(select => {
+                    const option = select.querySelector(`option[value="${proxyValue}"]`);
+                    if (option) select.value = proxyValue;
+                });
+                const proxyRadios = document.querySelectorAll('input[name="proxy"]');
+                proxyRadios.forEach(radio => {
+                    if (radio.value === proxyValue) radio.checked = true;
+                });
+            }
+            
+            if (modeCookie) {
+                const modeValue = modeCookie.split('=')[1];
+                const modeRadios = document.querySelectorAll('input[name="mode"]');
+                modeRadios.forEach(radio => {
+                    if (radio.value === modeValue) radio.checked = true;
+                });
+            }
+        });
+    </script>
     {% block extra_scripts %}{% endblock %}
 </body>
 </html>
