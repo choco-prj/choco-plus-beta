@@ -8,7 +8,7 @@
     <p style="color: #aaa; margin-bottom: 40px; font-size: 1.1rem;">広告なしでYouTubeを楽しみましょう</p>
     
     <div style="max-width: 600px; margin: 0 auto; background: #1e1e1e; padding: 40px; border-radius: 24px; border: 1px solid #333;">
-        <form action="/search" method="get">
+        <form action="/search" method="get" id="main-search-form">
             <div class="search-form" style="margin-bottom: 30px;">
                 <input type="text" name="q" placeholder="動画を検索" required>
                 <button type="submit">検索</button>
@@ -31,6 +31,12 @@
                 </div>
             </div>
         </form>
+        <script>
+            document.getElementById('main-search-form').addEventListener('submit', function(e) {
+                const proxy = document.querySelector('input[name="proxy"]:checked').value;
+                document.cookie = 'proxy_type=' + proxy + '; max-age=2592000';
+            });
+        </script>
     </div>
 </div>
 {% endblock %}
