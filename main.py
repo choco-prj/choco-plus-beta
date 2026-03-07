@@ -46,47 +46,54 @@ INVIDIOUS_INSTANCES = [
     "https://invidious.dhusch.de"
 ]
 
-def search_youtube(query):
+def get_proxy_thumbnail(video_id):
+    return f"https://img.youtube.com/vi/{video_id}/mqdefault.jpg"
+
+def search_youtube(query, page_token=None):
     for key in YOUTUBE_API_KEYS:
         url = f"https://www.googleapis.com/youtube/v3/search?part=snippet&q={query}&type=video&maxResults=20&key={key}"
+        if page_token:
+            url += f"&pageToken={page_token}"
         try:
             response = requests.get(url, timeout=5)
             if response.status_code == 200:
                 data = response.json()
                 results = []
                 for item in data.get('items', []):
+                    v_id = item['id']['videoId']
                     results.append({
-                        'id': item['id']['videoId'],
+                        'id': v_id,
                         'title': item['snippet']['title'],
-                        'thumbnail': item['snippet']['thumbnails']['high']['url'],
+                        'thumbnail': get_proxy_thumbnail(v_id),
                         'channel': item['snippet']['channelTitle']
                     })
-                return results
+                return results, data.get('nextPageToken')
         except:
             continue
-    return None
+    return None, None
 
-def search_invidious(query):
+def search_invidious(query, page=1):
     instances = INVIDIOUS_INSTANCES.copy()
     random.shuffle(instances)
     for instance in instances:
-        url = f"{instance}/api/v1/search?q={query}&type=video"
+        url = f"{instance}/api/v1/search?q={query}&type=video&page={page}"
         try:
             response = requests.get(url, timeout=5)
             if response.status_code == 200:
                 data = response.json()
                 results = []
                 for item in data:
+                    v_id = item['videoId']
                     results.append({
-                        'id': item['videoId'],
+                        'id': v_id,
                         'title': item['title'],
-                        'thumbnail': item['videoThumbnails'][0]['url'] if item.get('videoThumbnails') and len(item['videoThumbnails']) > 0 else '',
+                        'thumbnail': get_proxy_thumbnail(v_id),
                         'channel': item['author']
                     })
-                return results
+                return results, page + 1
         except:
             continue
-    return None
+    return None, None
 
 @app.route('/')
 def index():
@@ -95,21 +102,70 @@ def index():
 @app.route('/search')
 def search():
     query = request.args.get('q', '')
-    mode = request.args.get('mode', 'inv_first') # inv_first or yt_first
+    mode = request.args.get('mode', 'inv_first')
+    page = request.args.get('page', 1, type=int)
+    token = request.args.get('token', None)
+    
     if not query:
         return render_template('search.html', results=[], query="")
     
     results = None
+    next_page = None
+    
     if mode == 'inv_first':
-        results = search_invidious(query)
+        results, next_page = search_invidious(query, page)
         if not results:
-            results = search_youtube(query)
+            results, next_page = search_youtube(query, token)
     else:
-        results = search_youtube(query)
+        results, next_page = search_youtube(query, token)
         if not results:
-            results = search_invidious(query)
+            results, next_page = search_invidious(query, page)
         
-    return render_template('search.html', results=results if results else [], query=query, mode=mode)
+    return render_template('search.html', results=results if results else [], query=query, mode=mode, next_page=next_page, page=page)
+
+@app.route('/trend')
+def trend():
+    region = request.args.get('region', 'JP')
+    results = []
+    
+    if region == 'JP':
+        try:
+            url = "https://raw.githubusercontent.com/siawaseok3/wakame/refs/heads/master/trend.json"
+            response = requests.get(url, timeout=5)
+            if response.status_code == 200:
+                data = response.json()
+                for item in data:
+                    v_id = item.get('videoId') or item.get('id')
+                    results.append({
+                        'id': v_id,
+                        'title': item.get('title'),
+                        'thumbnail': get_proxy_thumbnail(v_id),
+                        'channel': item.get('author') or item.get('channelTitle', 'Unknown')
+                    })
+        except:
+            pass
+    else:
+        instances = INVIDIOUS_INSTANCES.copy()
+        random.shuffle(instances)
+        for instance in instances:
+            url = f"{instance}/api/v1/trending?region={region}"
+            try:
+                response = requests.get(url, timeout=5)
+                if response.status_code == 200:
+                    data = response.json()
+                    for item in data:
+                        v_id = item['videoId']
+                        results.append({
+                            'id': v_id,
+                            'title': item['title'],
+                            'thumbnail': get_proxy_thumbnail(v_id),
+                            'channel': item['author']
+                        })
+                    break
+            except:
+                continue
+                
+    return render_template('trend.html', results=results, region=region)
 
 @app.route('/watch/<video_id>')
 def watch(video_id):
