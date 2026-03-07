@@ -101,6 +101,41 @@ def search_invidious(query, page=1, proxy_type="img.youtube.com"):
             continue
     return None, None
 
+@app.route('/api/suggestions')
+def suggestions():
+    """検索候補を返すAPI"""
+    query = request.args.get('q', '').strip()
+    if not query or len(query) < 2:
+        return jsonify([])
+    
+    try:
+        # YouTube APIから検索候補を取得
+        suggestions_list = []
+        for key in YOUTUBE_API_KEYS:
+            url = f"https://www.googleapis.com/youtube/v3/search?part=snippet&q={query}&type=video&maxResults=10&key={key}"
+            try:
+                response = requests.get(url, timeout=5)
+                if response.status_code == 200:
+                    data = response.json()
+                    for item in data.get('items', []):
+                        title = item['snippet']['title']
+                        if title and title not in suggestions_list:
+                            suggestions_list.append(title)
+                        if len(suggestions_list) >= 10:
+                            break
+                    break
+            except:
+                continue
+        
+        # 候補が見つからなければクエリそのものを返す
+        if not suggestions_list:
+            return jsonify([query])
+        
+        return jsonify(suggestions_list[:10])
+    except Exception as e:
+        print(f"Error fetching suggestions: {e}")
+        return jsonify([query])
+
 @app.route('/')
 def index():
     # Get preferences from cookies or set defaults
@@ -118,7 +153,7 @@ def index():
 @app.route('/search')
 def search():
     query = request.args.get('q', '')
-    mode = request.args.get('mode', request.cookies.get('search_mode', 'inv_first'))
+    mode = request.cookies.get('search_mode', 'inv_first')
     page = request.args.get('page', 1, type=int)
     token = request.args.get('token', None)
     proxy_type = request.cookies.get('proxy_type', 'self-hosted')
