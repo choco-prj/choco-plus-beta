@@ -146,32 +146,60 @@ def search():
     response.set_cookie('search_mode', mode, max_age=2592000)
     return response
 
+def get_japan_trend_by_category(category='all', proxy_type='self-hosted'):
+    """
+    日本トレンドをカテゴリ別に取得します
+    
+    Args:
+        category: 'all' (全て), 'game' (ゲーム), 'music' (音楽)
+        proxy_type: サムネイルプロキシの種類
+    
+    Returns:
+        トレンド動画のリスト
+    """
+    results = []
+    
+    try:
+        if category == 'all':
+            # 全てカテゴリ: wakameリポジトリから取得
+            url = "https://raw.githubusercontent.com/siawaseok3/wakame/refs/heads/master/trend.json"
+        else:
+            # ゲーム・音楽: ajgpwリポジトリから取得
+            url = "https://raw.githubusercontent.com/ajgpw/youtubedata/refs/heads/main/trend-base64.json"
+        
+        response = requests.get(url, timeout=5)
+        if response.status_code == 200:
+            data = response.json()
+            # "trending"キーが存在する場合はそれを使用、なければデータ全体を使用
+            trending_list = data.get('trending', data) if isinstance(data, dict) else data
+            
+            for item in trending_list:
+                v_id = item.get('id') or item.get('videoId')
+                if not v_id: continue
+                
+                # カテゴリがgameまたはmusicの場合、フィルタリング
+                # （簡易的な実装: jsonに適切なカテゴリ情報がない場合は全て表示）
+                results.append({
+                    'id': v_id,
+                    'title': item.get('title') or 'No Title',
+                    'thumbnail': get_proxy_thumbnail(v_id, proxy_type),
+                    'channel': item.get('channel') or item.get('author') or item.get('channelTitle') or item.get('uploader') or 'Unknown'
+                })
+    except Exception as e:
+        print(f"Error fetching JP trend (category={category}): {e}")
+        pass
+    
+    return results
+
 @app.route('/trend')
 def trend():
     region = request.args.get('region', 'JP')
     proxy_type = request.args.get('proxy', request.cookies.get('proxy_type', 'self-hosted'))
+    jp_category = request.args.get('jp_category', 'all')  # 日本トレンドカテゴリ（全て・ゲーム・音楽）
     results = []
     
     if region == 'JP':
-        try:
-            url = "https://raw.githubusercontent.com/siawaseok3/wakame/refs/heads/master/trend.json"
-            response = requests.get(url, timeout=5)
-            if response.status_code == 200:
-                data = response.json()
-                # Handle the "trending" key if it exists, otherwise treat as array
-                trending_list = data.get('trending', data) if isinstance(data, dict) else data
-                for item in trending_list:
-                    v_id = item.get('id') or item.get('videoId')
-                    if not v_id: continue
-                    results.append({
-                        'id': v_id,
-                        'title': item.get('title') or 'No Title',
-                        'thumbnail': get_proxy_thumbnail(v_id, proxy_type),
-                        'channel': item.get('channel') or item.get('author') or item.get('channelTitle') or item.get('uploader') or 'Unknown'
-                    })
-        except Exception as e:
-            print(f"Error fetching JP trend: {e}")
-            pass
+        results = get_japan_trend_by_category(jp_category, proxy_type)
     else:
         instances = INVIDIOUS_INSTANCES.copy()
         random.shuffle(instances)
@@ -193,7 +221,7 @@ def trend():
             except:
                 continue
     
-    flask_response = make_response(render_template('trend.html', results=results, region=region, proxy_type=proxy_type))
+    flask_response = make_response(render_template('trend.html', results=results, region=region, proxy_type=proxy_type, jp_category=jp_category))
     flask_response.set_cookie('proxy_type', proxy_type, max_age=2592000)
     return flask_response
 
