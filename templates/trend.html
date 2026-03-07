@@ -30,6 +30,27 @@
         color: #000;
         border-color: #fa9d5a;
     }
+    .jp-category-selector {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        margin-bottom: 15px;
+    }
+    .jp-category-selector a {
+        color: #aaa;
+        text-decoration: none;
+        padding: 5px 15px;
+        border: 1px solid #333;
+        border-radius: 20px;
+        font-size: 0.9rem;
+        background: transparent;
+        cursor: pointer;
+    }
+    .jp-category-selector a.active {
+        background: #fa9d5a;
+        color: #000;
+        border-color: #fa9d5a;
+    }
     .proxy-selector {
         font-size: 0.9rem;
         color: #aaa;
@@ -47,7 +68,7 @@
 {% block content %}
 <div class="trend-header">
     <div class="region-selector">
-        <a href="/trend?region=JP&proxy={{ proxy_type }}" class="{{ 'active' if region == 'JP' }}">日本</a>
+        <a href="/trend?region=JP&proxy={{ proxy_type }}&jp_category={{ jp_category if jp_category else 'all' }}" class="{{ 'active' if region == 'JP' }}">日本</a>
         <a href="/trend?region=US&proxy={{ proxy_type }}" class="{{ 'active' if region == 'US' }}">アメリカ</a>
         <a href="/trend?region=GB&proxy={{ proxy_type }}" class="{{ 'active' if region == 'GB' }}">イギリス</a>
         <a href="/trend?region=KR&proxy={{ proxy_type }}" class="{{ 'active' if region == 'KR' }}">韓国</a>
@@ -57,13 +78,22 @@
     
     <div class="proxy-selector">
         サムネイル:
-        <select onchange="window.location.href='/trend?region={{ region }}&proxy=' + this.value">
+        <select onchange="window.location.href='/trend?region={{ region }}&proxy=' + this.value{% if region == 'JP' %}&jp_category={{ jp_category if jp_category else 'all' }}{% endif %}">
             <option value="img.youtube.com" {{ 'selected' if proxy_type == 'img.youtube.com' }}>img.youtube.com</option>
             <option value="i.ytimg.com" {{ 'selected' if proxy_type == 'i.ytimg.com' }}>i.ytimg.com</option>
             <option value="self-hosted" {{ 'selected' if proxy_type == 'self-hosted' }}>自サーバー (Self-hosted)</option>
         </select>
     </div>
 </div>
+
+{% if region == 'JP' %}
+<div class="jp-category-selector">
+    <strong style="color: #fff; display: flex; align-items: center; margin-right: 10px;">カテゴリ:</strong>
+    <a href="/trend?region=JP&proxy={{ proxy_type }}&jp_category=all" class="{{ 'active' if jp_category == 'all' or not jp_category }}">全て</a>
+    <a href="/trend?region=JP&proxy={{ proxy_type }}&jp_category=game" class="{{ 'active' if jp_category == 'game' }}">ゲーム</a>
+    <a href="/trend?region=JP&proxy={{ proxy_type }}&jp_category=music" class="{{ 'active' if jp_category == 'music' }}">音楽</a>
+</div>
+{% endif %}
 
 <div class="video-grid">
     {% for video in results %}
