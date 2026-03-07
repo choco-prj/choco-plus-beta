@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>視聴中 - Choco-Tube-Plus</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #0f0f0f; color: #fff; margin: 0; }
+        header { padding: 10px 20px; border-bottom: 1px solid #333; }
+        .logo { font-size: 1.5rem; font-weight: bold; color: #ff0000; text-decoration: none; }
+        .logo span { color: #fff; }
+        .player-wrapper { width: 100%; max-width: 1200px; margin: 20px auto; padding: 0 10px; box-sizing: border-box; }
+        .aspect-ratio { position: relative; width: 100%; padding-top: 56.25%; background: #000; border-radius: 12px; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.8); }
+        iframe { position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: none; }
+    </style>
+</head>
+<body>
+    <header>
+        <a href="/" class="logo">Choco-Tube<span>+</span></a>
+    </header>
+    <div class="player-wrapper">
+        <div class="aspect-ratio">
+            <iframe src="https://www.youtube.com/embed/{{ video_id }}?autoplay=1" allow="autoplay; encrypted-media" allowfullscreen></iframe>
+        </div>
+    </div>
+</body>
+</html>
