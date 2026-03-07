@@ -3,7 +3,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // ヘッダーの検索入力
     const headerInput = document.getElementById('search-input');
     // ホームページの検索入力
-    const homeInput = document.querySelector('input[name="q"]');
+    const homeInput = document.querySelector('input[name="q"]:not(#search-input)');
     
     // 両方の検索入力に対して処理
     const inputs = [headerInput, homeInput].filter(Boolean);
@@ -13,8 +13,14 @@ document.addEventListener('DOMContentLoaded', function() {
         const suggestBox = document.createElement('div');
         suggestBox.className = 'suggest-box';
         suggestBox.style.display = 'none';
-        input.parentElement.style.position = 'relative';
-        input.parentElement.appendChild(suggestBox);
+        
+        // 親要素に相対位置を設定
+        let container = input.parentElement;
+        if (container && container.style.position !== 'relative') {
+            container.style.position = 'relative';
+        }
+        
+        container.appendChild(suggestBox);
         
         let timeout;
         
