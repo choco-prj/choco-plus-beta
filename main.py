@@ -48,8 +48,8 @@ INVIDIOUS_INSTANCES = [
 
 def get_proxy_thumbnail(video_id, proxy_type="img.youtube.com"):
     if proxy_type == "i.ytimg.com":
-        return f"https://i.ytimg.com/vi/{video_id}/mqdefault.jpg"
-    return f"https://img.youtube.com/vi/{video_id}/mqdefault.jpg"
+        return f"https://i.ytimg.com/vi/{video_id}/hqdefault.jpg"
+    return f"https://img.youtube.com/vi/{video_id}/hqdefault.jpg"
 
 def search_youtube(query, page_token=None, proxy_type="img.youtube.com"):
     for key in YOUTUBE_API_KEYS:
@@ -140,13 +140,15 @@ def trend():
                 data = response.json()
                 for item in data:
                     v_id = item.get('videoId') or item.get('id')
+                    if not v_id: continue
                     results.append({
                         'id': v_id,
-                        'title': item.get('title'),
+                        'title': item.get('title') or 'No Title',
                         'thumbnail': get_proxy_thumbnail(v_id, proxy_type),
-                        'channel': item.get('author') or item.get('channelTitle', 'Unknown')
+                        'channel': item.get('author') or item.get('channelTitle') or item.get('uploader') or 'Unknown'
                     })
-        except:
+        except Exception as e:
+            print(f"Error fetching JP trend: {e}")
             pass
     else:
         instances = INVIDIOUS_INSTANCES.copy()
