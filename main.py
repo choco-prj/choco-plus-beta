@@ -57,6 +57,28 @@ def get_proxy_thumbnail(video_id, proxy_type="img.youtube.com"):
         return f"/api/thumbnail/{video_id}"
     return f"https://img.youtube.com/vi/{video_id}/hqdefault.jpg"
 
+def parse_iso8601_duration(duration_str):
+    """Parse ISO 8601 duration (e.g., PT1H23M45S) to readable format (1:23:45 or 23:45)"""
+    if not duration_str:
+        return ""
+    try:
+        import re
+        pattern = r'PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?'
+        match = re.match(pattern, duration_str)
+        if match:
+            hours, minutes, seconds = match.groups()
+            hours = int(hours) if hours else 0
+            minutes = int(minutes) if minutes else 0
+            seconds = int(seconds) if seconds else 0
+            
+            if hours > 0:
+                return f"{hours}:{minutes:02d}:{seconds:02d}"
+            else:
+                return f"{minutes}:{seconds:02d}"
+        return ""
+    except:
+        return ""
+
 def search_youtube(query, page_token=None, proxy_type="img.youtube.com", search_type="video"):
     for key in YOUTUBE_API_KEYS:
         url = f"https://www.googleapis.com/youtube/v3/search?part=snippet&q={query}&type={search_type}&maxResults=20&key={key}"
@@ -88,26 +110,31 @@ def search_youtube(query, page_token=None, proxy_type="img.youtube.com", search_
                             'channel_id': item['snippet']['channelId'],
                             'type': 'video',
                             'views': 'N/A',
-                            'published_at': item['snippet']['publishedAt']
+                            'published_at': item['snippet']['publishedAt'],
+                            'duration': ''
                         })
                 
-                # Fetch video statistics to get view count
+                # Fetch video statistics and duration to get view count and length
                 if video_ids and search_type == "video":
                     try:
-                        stats_url = f"https://www.googleapis.com/youtube/v3/videos?part=statistics&id={','.join(video_ids)}&key={key}"
+                        stats_url = f"https://www.googleapis.com/youtube/v3/videos?part=statistics,contentDetails&id={','.join(video_ids)}&key={key}"
                         stats_response = requests.get(stats_url, timeout=5)
                         if stats_response.status_code == 200:
                             stats_data = stats_response.json()
-                            stats_map = {item['id']: item['statistics'].get('viewCount', '0') for item in stats_data.get('items', [])}
+                            stats_map = {item['id']: item for item in stats_data.get('items', [])}
                             for result in results:
-                                if result['type'] == 'video':
-                                    view_count = int(stats_map.get(result['id'], 0))
+                                if result['type'] == 'video' and result['id'] in stats_map:
+                                    item = stats_map[result['id']]
+                                    view_count = int(item.get('statistics', {}).get('viewCount', 0))
                                     if view_count >= 1000000:
                                         result['views'] = f"{view_count/1000000:.1f}M"
                                     elif view_count >= 1000:
                                         result['views'] = f"{view_count/1000:.1f}K"
                                     else:
                                         result['views'] = str(view_count)
+                                    
+                                    duration = item.get('contentDetails', {}).get('duration', '')
+                                    result['duration'] = parse_iso8601_duration(duration)
                     except Exception as e:
                         print(f"Error fetching video stats: {e}")
                 
@@ -332,6 +359,38 @@ def format_view_count(count):
         return f"{count/1000:.1f}K"
     return str(count)
 
+def parse_duration_to_seconds(duration_str):
+    """Parse ISO 8601 duration to seconds"""
+    if not duration_str:
+        return 0
+    try:
+        import re
+        pattern = r'PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?'
+        match = re.match(pattern, duration_str)
+        if match:
+            hours, minutes, seconds = match.groups()
+            hours = int(hours) if hours else 0
+            minutes = int(minutes) if minutes else 0
+            seconds = int(seconds) if seconds else 0
+            return hours * 3600 + minutes * 60 + seconds
+        return 0
+    except:
+        return 0
+
+def format_time_seconds(seconds):
+    """Format seconds to MM:SS or H:MM:SS"""
+    try:
+        seconds = int(seconds)
+        hours = seconds // 3600
+        minutes = (seconds % 3600) // 60
+        secs = seconds % 60
+        if hours > 0:
+            return f"{hours}:{minutes:02d}:{secs:02d}"
+        else:
+            return f"{minutes}:{secs:02d}"
+    except:
+        return ""
+
 def get_video_details(video_id, key):
     try:
         url = f"https://www.googleapis.com/youtube/v3/videos?part=statistics,contentDetails&id={video_id}&key={key}"
@@ -353,7 +412,9 @@ def get_video_details(video_id, key):
 @app.route('/channel/<channel_id>')
 def channel(channel_id):
     channel = None
+    all_videos = []
     videos = []
+    shorts = []
     
     try:
         channel_data = None
@@ -413,23 +474,42 @@ def channel(channel_id):
                             else:
                                 v_id = item['id']['videoId']
                             video_ids.append(v_id)
-                            videos.append({
+                            all_videos.append({
                                 'id': v_id,
                                 'title': item['snippet']['title'],
                                 'published': item['snippet']['publishedAt'][:10] if 'publishedAt' in item['snippet'] else '',
                                 'views': '0',
-                                'length': ''
+                                'length': '',
+                                'is_short': False
                             })
                         except KeyError as e:
                             print(f"Error parsing video item: {e}")
                             continue
+                    
+                    # Fetch video details to get duration
+                    if video_ids:
+                        try:
+                            details_url = f"https://www.googleapis.com/youtube/v3/videos?part=contentDetails&id={','.join(video_ids)}&key={key}"
+                            details_response = requests.get(details_url, timeout=5)
+                            if details_response.status_code == 200:
+                                details_data = details_response.json()
+                                details_map = {item['id']: item for item in details_data.get('items', [])}
+                                for video in all_videos:
+                                    if video['id'] in details_map:
+                                        duration_str = details_map[video['id']].get('contentDetails', {}).get('duration', '')
+                                        video['length'] = parse_iso8601_duration(duration_str)
+                                        # Check if it's a short (duration <= 60 seconds)
+                                        duration = parse_duration_to_seconds(duration_str)
+                                        video['is_short'] = duration <= 60
+                        except Exception as e:
+                            print(f"Error fetching video details: {e}")
                     break
             except Exception as e:
                 print(f"Error fetching channel videos: {e}")
                 continue
         
         # If YouTube API videos fetch failed, try Invidious
-        if not videos and channel_source:
+        if not all_videos and channel_source:
             instances = INVIDIOUS_INSTANCES.copy()
             random.shuffle(instances)
             for instance in instances:
@@ -443,12 +523,14 @@ def channel(channel_id):
                                 v_id = item.get('videoId')
                                 if v_id:
                                     view_count = item.get('viewCount', 0)
-                                    videos.append({
+                                    length = item.get('lengthSeconds', 0)
+                                    all_videos.append({
                                         'id': v_id,
                                         'title': item.get('title', 'Unknown'),
                                         'published': item.get('published', ''),
                                         'views': format_view_count(view_count),
-                                        'length': ''
+                                        'length': format_time_seconds(length),
+                                        'is_short': int(length) <= 60
                                     })
                             except Exception as e:
                                 print(f"Error parsing invidious video: {e}")
@@ -457,6 +539,13 @@ def channel(channel_id):
                 except Exception as e:
                     print(f"Invidious videos error: {e}")
                     continue
+        
+        # Separate videos and shorts
+        for video in all_videos:
+            if video['is_short']:
+                shorts.append(video)
+            else:
+                videos.append(video)
         
         # Process channel data
         if channel_data:
@@ -500,7 +589,7 @@ def channel(channel_id):
         import traceback
         traceback.print_exc()
     
-    return render_template('channel.html', channel=channel, videos=videos)
+    return render_template('channel.html', channel=channel, videos=videos, shorts=shorts)
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
