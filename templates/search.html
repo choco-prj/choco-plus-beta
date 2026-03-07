@@ -27,13 +27,19 @@
 <div class="search-options">
     <div class="proxy-selector">
         サムネイル:
-        <select onchange="window.location.href='/search?q={{ query }}&mode={{ mode }}&proxy=' + this.value">
+        <select id="proxy-select" onchange="setProxyAndReload(this.value)">
             <option value="self-hosted" {{ 'selected' if proxy_type == 'self-hosted' }}>自サーバー</option>
             <option value="img.youtube.com" {{ 'selected' if proxy_type == 'img.youtube.com' }}>img.youtube.com</option>
             <option value="i.ytimg.com" {{ 'selected' if proxy_type == 'i.ytimg.com' }}>i.ytimg.com</option>
         </select>
     </div>
 </div>
+<script>
+function setProxyAndReload(value) {
+    document.cookie = 'proxy_type=' + value + '; max-age=2592000';
+    window.location.href = '/search?q={{ query }}&mode={{ mode }}';
+}
+</script>
 
 <div class="video-grid">
     {% for video in results %}
@@ -52,9 +58,9 @@
 {% if next_page %}
 <div class="pagination">
     {% if mode == 'inv_first' %}
-    <a href="/search?q={{ query }}&mode={{ mode }}&page={{ next_page }}&proxy={{ proxy_type }}" class="next-btn">次のページへ</a>
+    <a href="/search?q={{ query }}&mode={{ mode }}&page={{ next_page }}" class="next-btn">次のページへ</a>
     {% else %}
-    <a href="/search?q={{ query }}&mode={{ mode }}&token={{ next_page }}&proxy={{ proxy_type }}" class="next-btn">次のページへ</a>
+    <a href="/search?q={{ query }}&mode={{ mode }}&token={{ next_page }}" class="next-btn">次のページへ</a>
     {% endif %}
 </div>
 {% endif %}
