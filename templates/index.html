@@ -4,28 +4,42 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Choco-Tube-Plus</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #0f0f0f; color: #fff; margin: 0; }
-        .hero { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 80vh; text-align: center; }
-        .logo { font-size: 3rem; font-weight: bold; color: #ff0000; margin-bottom: 2rem; text-shadow: 0 0 10px rgba(255,0,0,0.5); }
+        body { font-family: 'Segoe UI', sans-serif; background-color: #0f0f0f; color: #fff; margin: 0; display: flex; flex-direction: column; align-items: center; }
+        header { width: 100%; padding: 15px 0; background: #0f0f0f; position: sticky; top: 0; z-index: 1000; border-bottom: 1px solid #333; display: flex; justify-content: center; }
+        .nav-container { width: 90%; max-width: 1200px; display: flex; align-items: center; gap: 20px; }
+        .logo { font-size: 1.8rem; font-weight: bold; color: #ff0000; text-decoration: none; }
         .logo span { color: #fff; }
-        .search-container { width: 90%; max-width: 600px; background: #222; padding: 2rem; border-radius: 24px; box-shadow: 0 4px 20px rgba(0,0,0,0.5); }
-        .search-box { display: flex; width: 100%; border: 1px solid #333; border-radius: 40px; overflow: hidden; background: #121212; margin-bottom: 1rem; }
-        input[type="text"] { flex: 1; border: none; background: transparent; color: #fff; padding: 12px 20px; outline: none; font-size: 1rem; }
-        button { background: #333; border: none; color: #fff; padding: 0 25px; cursor: pointer; transition: background 0.3s; }
-        button:hover { background: #444; }
-        .options { display: flex; justify-content: center; gap: 20px; font-size: 0.9rem; color: #aaa; }
-        .options label { cursor: pointer; display: flex; align-items: center; gap: 5px; }
+        .search-box { flex: 1; max-width: 600px; display: flex; border: 1px solid #333; border-radius: 40px; overflow: hidden; background: #121212; }
+        input[type="text"] { flex: 1; border: none; background: transparent; color: #fff; padding: 10px 20px; outline: none; font-size: 1rem; }
+        button { background: #333; border: none; color: #fff; padding: 0 20px; cursor: pointer; }
+        .hero { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 60vh; text-align: center; gap: 30px; }
+        .main-logo { font-size: 4rem; font-weight: bold; color: #ff0000; }
+        .main-logo span { color: #fff; }
+        .big-search { width: 90%; max-width: 600px; background: #222; padding: 25px; border-radius: 24px; }
+        .trend-btn { display: inline-block; margin-top: 30px; padding: 12px 30px; background: #ff0000; color: #fff; text-decoration: none; border-radius: 30px; font-weight: bold; transition: 0.3s; }
+        .trend-btn:hover { background: #cc0000; transform: scale(1.05); }
+        .options { margin-top: 15px; display: flex; justify-content: center; gap: 15px; font-size: 0.9rem; color: #aaa; }
     </style>
 </head>
 <body>
-    <div class="hero">
-        <div class="logo">Choco-Tube<span>+</span></div>
-        <div class="search-container">
-            <form action="/search" method="get">
+    <header>
+        <div class="nav-container">
+            <a href="/" class="logo">Choco-Tube<span>+</span></a>
+            <form action="/search" method="get" style="flex:1; display:flex;">
                 <div class="search-box">
                     <input type="text" name="q" placeholder="動画を検索..." required>
+                    <button type="submit">検索</button>
+                </div>
+            </form>
+        </div>
+    </header>
+    <main class="hero">
+        <div class="main-logo">Choco-Tube<span>+</span></div>
+        <div class="big-search">
+            <form action="/search" method="get">
+                <div class="search-box">
+                    <input type="text" name="q" placeholder="何を見ますか？" required>
                     <button type="submit">検索</button>
                 </div>
                 <div class="options">
@@ -34,6 +48,7 @@
                 </div>
             </form>
         </div>
-    </div>
+        <a href="/trend" class="trend-btn">🔥 今日のトレンドを見る</a>
+    </main>
 </body>
 </html>
