@@ -1,75 +1,90 @@
-// Autocomplete functionality for search
+// オートコンプリート機能
 document.addEventListener('DOMContentLoaded', function() {
-    const searchInput = document.getElementById('search-input');
-    if (!searchInput) return;
+    // ヘッダーの検索入力
+    const headerInput = document.getElementById('search-input');
+    // ホームページの検索入力
+    const homeInput = document.querySelector('input[name="q"]');
     
-    const suggestionsList = document.getElementById('suggestions-list');
-    let suggestionTimeout;
+    // 両方の検索入力に対して処理
+    const inputs = [headerInput, homeInput].filter(Boolean);
     
-    // Fetch search suggestions from YouTube API
-    async function fetchSuggestions(query) {
-        if (!query || query.length < 2) {
-            suggestionsList.style.display = 'none';
-            return;
-        }
+    inputs.forEach(input => {
+        // 候補箱を作成
+        const suggestBox = document.createElement('div');
+        suggestBox.className = 'suggest-box';
+        suggestBox.style.display = 'none';
+        input.parentElement.style.position = 'relative';
+        input.parentElement.appendChild(suggestBox);
         
-        try {
-            // Try to fetch suggestions from YouTube autocomplete
-            const response = await fetch(
-                `https://www.youtube.com/complete/search?client=youtube&q=${encodeURIComponent(query)}&callback=handleYoutubeSuggestions`,
-                { mode: 'no-cors' }
-            ).catch(() => null);
+        let timeout;
+        
+        // 入力イベント
+        input.addEventListener('input', async function() {
+            clearTimeout(timeout);
             
-            // Fallback: Use a simple array of common search terms
-            const suggestions = getLocalSuggestions(query);
-            displaySuggestions(suggestions);
-        } catch (error) {
-            console.error('Error fetching suggestions:', error);
-            const suggestions = getLocalSuggestions(query);
-            displaySuggestions(suggestions);
-        }
-    }
-    
-    // Get suggestions from local common terms
-    function getLocalSuggestions(query) {
-        const commonTerms = [
-            'music', 'gaming', 'animation', 'tutorial', 'vlog',
-            'podcast', 'news', 'sports', 'comedy', 'education',
-            'technology', 'cooking', 'travel', 'fashion', 'fitness'
-        ];
-        
-        const lowerQuery = query.toLowerCase();
-        return commonTerms
-            .filter(term => term.includes(lowerQuery))
-            .map(term => query + term.slice(lowerQuery.length))
-            .slice(0, 5);
-    }
-    
-    // Display suggestions in dropdown
-    function displaySuggestions(suggestions) {
-        if (!suggestions || suggestions.length === 0) {
-            suggestionsList.style.display = 'none';
-            return;
-        }
-        
-        suggestionsList.innerHTML = suggestions
-            .map((suggestion, index) => 
-                `<div class="suggestion-item" data-index="${index}">${escapeHtml(suggestion)}</div>`
-            )
-            .join('');
-        
-        suggestionsList.style.display = 'block';
-        
-        // Add click handlers to suggestions
-        document.querySelectorAll('.suggestion-item').forEach(item => {
-            item.addEventListener('click', function() {
-                searchInput.value = this.textContent;
-                suggestionsList.style.display = 'none';
-            });
+            const query = this.value.trim();
+            if (query.length < 2) {
+                suggestBox.style.display = 'none';
+                return;
+            }
+            
+            // サーバーから候補を取得
+            timeout = setTimeout(async () => {
+                try {
+                    const response = await fetch(`/api/suggestions?q=${encodeURIComponent(query)}`);
+                    const suggestions = await response.json();
+                    
+                    if (suggestions.length === 0) {
+                        suggestBox.style.display = 'none';
+                        return;
+                    }
+                    
+                    // 候補を表示
+                    suggestBox.innerHTML = suggestions
+                        .map(s => `<div class="suggest-item">${escapeHtml(s)}</div>`)
+                        .join('');
+                    
+                    // 位置を調整
+                    const rect = input.getBoundingClientRect();
+                    suggestBox.style.left = (rect.left - input.parentElement.getBoundingClientRect().left) + 'px';
+                    suggestBox.style.top = (rect.bottom - input.parentElement.getBoundingClientRect().top) + 'px';
+                    suggestBox.style.width = rect.width + 'px';
+                    suggestBox.style.display = 'block';
+                    
+                    // 候補をクリックしたら値をセット
+                    document.querySelectorAll('.suggest-item').forEach(item => {
+                        item.addEventListener('click', function() {
+                            input.value = this.innerText;
+                            suggestBox.style.display = 'none';
+                            input.form.submit();
+                        });
+                    });
+                } catch (error) {
+                    console.error('検索候補の取得に失敗:', error);
+                    suggestBox.style.display = 'none';
+                }
+            }, 300);
         });
-    }
+        
+        // フォーカス時に候補を表示
+        input.addEventListener('focus', async function() {
+            if (this.value.length >= 2) {
+                // 既に候補がある場合は表示
+                if (suggestBox.innerHTML) {
+                    suggestBox.style.display = 'block';
+                }
+            }
+        });
+        
+        // クリック外で候補を隠す
+        document.addEventListener('click', function(e) {
+            if (e.target !== input && !suggestBox.contains(e.target)) {
+                suggestBox.style.display = 'none';
+            }
+        });
+    });
     
-    // Escape HTML to prevent injection
+    // HTML特殊文字をエスケープ
     function escapeHtml(text) {
         const map = {
             '&': '&amp;',
@@ -80,26 +95,4 @@ document.addEventListener('DOMContentLoaded', function() {
         };
         return text.replace(/[&<>"']/g, m => map[m]);
     }
-    
-    // Input event listener
-    searchInput.addEventListener('input', function() {
-        clearTimeout(suggestionTimeout);
-        suggestionTimeout = setTimeout(() => {
-            fetchSuggestions(this.value);
-        }, 300);
-    });
-    
-    // Hide suggestions when clicking outside
-    document.addEventListener('click', function(e) {
-        if (e.target !== searchInput) {
-            suggestionsList.style.display = 'none';
-        }
-    });
-    
-    // Show suggestions on focus if there's text
-    searchInput.addEventListener('focus', function() {
-        if (this.value.length >= 2) {
-            fetchSuggestions(this.value);
-        }
-    });
 });
