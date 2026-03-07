@@ -91,7 +91,7 @@ main {
 
 .video-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
     gap: 20px;
 }
 
@@ -140,6 +140,19 @@ main {
     margin: 0;
     font-size: 0.85rem;
     color: #aaa;
+}
+
+.video-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-top: 8px;
+    font-size: 0.75rem;
+    color: #888;
+}
+
+.view-count, .published-date {
+    display: block;
 }
 
 .bottom-nav {
