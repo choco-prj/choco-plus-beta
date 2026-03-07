@@ -1,10 +1,12 @@
 from flask import Flask, render_template, request, jsonify, make_response
+from flask_cors import CORS
 import requests
 import random
 import os
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'choco-tube-dev-key')
+CORS(app)
 
 YOUTUBE_API_KEYS = [
     "AIzaSyBQ-40ld7erVfx7s6iKBYl-GjDqJVYBwrc",
@@ -117,21 +119,46 @@ def suggestions():
                 response = requests.get(url, timeout=5)
                 if response.status_code == 200:
                     data = response.json()
-                    for item in data.get('items', []):
-                        title = item['snippet']['title']
+                    # Check for error in response
+                    if 'error' not in data:
+                        for item in data.get('items', []):
+                            title = item['snippet']['title']
+                            if title and title not in suggestions_list:
+                                suggestions_list.append(title)
+                            if len(suggestions_list) >= 10:
+                                break
+                        if suggestions_list:
+                            return jsonify(suggestions_list[:10])
+                        break
+                elif response.status_code == 403:
+                    # API key quota exceeded, try next key
+                    continue
+            except Exception as e:
+                print(f"Error with key {key[:10]}...: {e}")
+                continue
+        
+        # Invidious APIにフォールバック
+        instances = INVIDIOUS_INSTANCES.copy()
+        random.shuffle(instances)
+        for instance in instances:
+            try:
+                url = f"{instance}/api/v1/search?q={query}&type=video"
+                response = requests.get(url, timeout=5)
+                if response.status_code == 200:
+                    data = response.json()
+                    suggestions_list = []
+                    for item in data[:10]:
+                        title = item.get('title', '')
                         if title and title not in suggestions_list:
                             suggestions_list.append(title)
-                        if len(suggestions_list) >= 10:
-                            break
-                    break
-            except:
+                    if suggestions_list:
+                        return jsonify(suggestions_list[:10])
+            except Exception as e:
+                print(f"Error with Invidious {instance}: {e}")
                 continue
         
         # 候補が見つからなければクエリそのものを返す
-        if not suggestions_list:
-            return jsonify([query])
-        
-        return jsonify(suggestions_list[:10])
+        return jsonify([query])
     except Exception as e:
         print(f"Error fetching suggestions: {e}")
         return jsonify([query])
