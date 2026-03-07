@@ -341,7 +341,8 @@
     </div>
 
     <div class="channel-tabs">
-        <button class="channel-tab active" data-tab="videos">動画</button>
+        <button class="channel-tab active" data-tab="videos">動画{% if videos %} ({{ videos|length }}){% endif %}</button>
+        {% if shorts %}<button class="channel-tab" data-tab="shorts">ショート{% if shorts %} ({{ shorts|length }}){% endif %}</button>{% endif %}
         <button class="channel-tab" data-tab="about">概要</button>
     </div>
 
@@ -379,6 +380,33 @@
             </div>
         </div>
     </div>
+
+    {% if shorts %}
+    <div class="channel-tab-content hidden" id="tab-shorts">
+        <div class="video-grid" id="shorts-grid">
+            {% for short in shorts %}
+            <a href="/watch/{{ short.id }}" class="video-card dynamic-video-link" data-video-id="{{ short.id }}">
+                <div class="thumbnail-container">
+                    <img src="/api/thumbnail/{{ short.id }}" alt="{{ short.title }}" class="thumbnail" loading="lazy">
+                    {% if short.length %}
+                    <span class="video-duration">{{ short.length }}</span>
+                    {% endif %}
+                </div>
+                <div class="video-info">
+                    <h3 class="video-title">{{ short.title }}</h3>
+                    <p class="video-meta">
+                        <span>{{ short.views }}</span>
+                        {% if short.published %}
+                        <span class="separator">•</span>
+                        <span>{{ short.published }}</span>
+                        {% endif %}
+                    </p>
+                </div>
+            </a>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
 
     <div class="channel-tab-content hidden" id="tab-about">
         <div class="about-section">
