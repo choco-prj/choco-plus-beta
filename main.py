@@ -70,7 +70,7 @@ def parse_iso8601_duration(duration_str):
             hours = int(hours) if hours else 0
             minutes = int(minutes) if minutes else 0
             seconds = int(seconds) if seconds else 0
-
+            
             if hours > 0:
                 return f"{hours}:{minutes:02d}:{seconds:02d}"
             else:
@@ -113,7 +113,7 @@ def search_youtube(query, page_token=None, proxy_type="img.youtube.com", search_
                             'published_at': item['snippet']['publishedAt'],
                             'duration': ''
                         })
-
+                
                 # Fetch video statistics and duration to get view count and length
                 if video_ids and search_type == "video":
                     try:
@@ -132,12 +132,12 @@ def search_youtube(query, page_token=None, proxy_type="img.youtube.com", search_
                                         result['views'] = f"{view_count/1000:.1f}K"
                                     else:
                                         result['views'] = str(view_count)
-
+                                    
                                     duration = item.get('contentDetails', {}).get('duration', '')
                                     result['duration'] = parse_iso8601_duration(duration)
                     except Exception as e:
                         print(f"Error fetching video stats: {e}")
-
+                
                 return results, data.get('nextPageToken')
         except Exception as e:
             print(f"YouTube API error with key {key[:10]}...: {e}")
@@ -196,13 +196,13 @@ def index():
     # Get preferences from cookies or set defaults
     proxy_type = request.cookies.get('proxy_type', 'self-hosted')
     search_mode = request.cookies.get('search_mode', 'inv_first')
-
+    
     response = make_response(render_template('index.html', proxy_type=proxy_type, search_mode=search_mode))
-
+    
     # Set default cookies
     response.set_cookie('proxy_type', proxy_type, max_age=2592000)  # 30 days
     response.set_cookie('search_mode', search_mode, max_age=2592000)  # 30 days
-
+    
     return response
 
 @app.route('/search')
@@ -213,17 +213,17 @@ def search():
     token = request.args.get('token', None)
     proxy_type = request.cookies.get('proxy_type', 'self-hosted')
     search_type = request.cookies.get('search_type', 'video')
-
+    
     if not query:
         response = make_response(render_template('search.html', results=[], query="", proxy_type=proxy_type, mode=mode, search_type=search_type))
         response.set_cookie('proxy_type', proxy_type, max_age=2592000)
         response.set_cookie('search_mode', mode, max_age=2592000)
         response.set_cookie('search_type', search_type, max_age=2592000)
         return response
-
+    
     results = None
     next_page = None
-
+    
     if mode == 'inv_first':
         results, next_page = search_invidious(query, page, proxy_type, search_type)
         if not results:
@@ -232,7 +232,7 @@ def search():
         results, next_page = search_youtube(query, token, proxy_type, search_type)
         if not results:
             results, next_page = search_invidious(query, page, proxy_type, search_type)
-
+    
     response = make_response(render_template('search.html', results=results if results else [], query=query, mode=mode, next_page=next_page, page=page, proxy_type=proxy_type, search_type=search_type))
     response.set_cookie('proxy_type', proxy_type, max_age=2592000)
     response.set_cookie('search_mode', mode, max_age=2592000)
@@ -242,16 +242,16 @@ def search():
 def get_japan_trend_by_category(category='all', proxy_type='self-hosted'):
     """
     日本トレンドをカテゴリ別に取得します
-
+    
     Args:
         category: 'all' (全て), 'game' (ゲーム), 'music' (音楽)
         proxy_type: サムネイルプロキシの種類
-
+    
     Returns:
         トレンド動画のリスト
     """
     results = []
-
+    
     try:
         if category == 'all':
             # 全てカテゴリ: wakameリポジトリから取得
@@ -259,11 +259,11 @@ def get_japan_trend_by_category(category='all', proxy_type='self-hosted'):
         else:
             # ゲーム・音楽: ajgpwリポジトリから取得
             url = "https://raw.githubusercontent.com/ajgpw/youtubedata/refs/heads/main/trend-base64.json"
-
+        
         response = requests.get(url, timeout=5)
         if response.status_code == 200:
             data = response.json()
-
+            
             # カテゴリ別に対応するキーを決定
             if category == 'all':
                 # wakameリポジトリの場合は'trending'キーを使用
@@ -277,11 +277,11 @@ def get_japan_trend_by_category(category='all', proxy_type='self-hosted'):
             else:
                 # デフォルト
                 trending_list = data.get('trending', data) if isinstance(data, dict) else data
-
+            
             for item in trending_list:
                 v_id = item.get('id') or item.get('videoId')
                 if not v_id: continue
-
+                
                 results.append({
                     'id': v_id,
                     'title': item.get('title') or 'No Title',
@@ -291,7 +291,7 @@ def get_japan_trend_by_category(category='all', proxy_type='self-hosted'):
     except Exception as e:
         print(f"Error fetching JP trend (category={category}): {e}")
         pass
-
+    
     return results
 
 @app.route('/trend')
@@ -300,7 +300,7 @@ def trend():
     proxy_type = request.cookies.get('proxy_type', 'self-hosted')
     jp_category = request.cookies.get('trend_category', 'all')
     results = []
-
+    
     if region == 'JP':
         results = get_japan_trend_by_category(jp_category, proxy_type)
     else:
@@ -323,7 +323,7 @@ def trend():
                     break
             except:
                 continue
-
+    
     flask_response = make_response(render_template('trend.html', results=results, region=region, proxy_type=proxy_type, jp_category=jp_category))
     flask_response.set_cookie('proxy_type', proxy_type, max_age=2592000)
     flask_response.set_cookie('trend_region', region, max_age=2592000)
@@ -415,11 +415,11 @@ def channel(channel_id):
     all_videos = []
     videos = []
     shorts = []
-
+    
     try:
         channel_data = None
         channel_source = None
-
+        
         # Try YouTube API first
         for key in YOUTUBE_API_KEYS:
             try:
@@ -434,7 +434,7 @@ def channel(channel_id):
             except Exception as e:
                 print(f"Error fetching channel info: {e}")
                 continue
-
+        
         # Fallback to Invidious if YouTube API fails
         if not channel_data:
             instances = INVIDIOUS_INSTANCES.copy()
@@ -450,19 +450,19 @@ def channel(channel_id):
                 except Exception as e:
                     print(f"Invidious channel error: {e}")
                     continue
-
+        
         # Fetch videos using uploads playlist
         uploads_playlist_id = None
         if channel_source == 'youtube' and channel_data:
             uploads_playlist_id = f"UU{channel_id[2:]}"
-
+        
         for key in YOUTUBE_API_KEYS:
             try:
                 if uploads_playlist_id:
                     url = f"https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&playlistId={uploads_playlist_id}&maxResults=50&key={key}"
                 else:
                     url = f"https://www.googleapis.com/youtube/v3/search?part=snippet&channelId={channel_id}&type=video&order=date&maxResults=50&key={key}"
-
+                
                 response = requests.get(url, timeout=5)
                 if response.status_code == 200:
                     data = response.json()
@@ -485,7 +485,7 @@ def channel(channel_id):
                         except KeyError as e:
                             print(f"Error parsing video item: {e}")
                             continue
-
+                    
                     # Fetch video details to get duration
                     if video_ids:
                         try:
@@ -507,7 +507,7 @@ def channel(channel_id):
             except Exception as e:
                 print(f"Error fetching channel videos: {e}")
                 continue
-
+        
         # If YouTube API videos fetch failed, try Invidious
         if not all_videos and channel_source:
             instances = INVIDIOUS_INSTANCES.copy()
@@ -539,14 +539,14 @@ def channel(channel_id):
                 except Exception as e:
                     print(f"Invidious videos error: {e}")
                     continue
-
+        
         # Separate videos and shorts
         for video in all_videos:
             if video['is_short']:
                 shorts.append(video)
             else:
                 videos.append(video)
-
+        
         # Process channel data
         if channel_data:
             channel = {}
@@ -558,18 +558,18 @@ def channel(channel_id):
                         thumbnails = channel_data['snippet'].get('thumbnails', {})
                         if thumbnails:
                             channel['channelIcon'] = thumbnails.get('high', {}).get('url') or thumbnails.get('default', {}).get('url')
-
+                    
                     if 'statistics' in channel_data:
                         sub_count = channel_data['statistics'].get('subscriberCount')
                         if sub_count:
                             channel['subscribers'] = int(sub_count)
-
+                        
                         view = channel_data['statistics'].get('viewCount')
                         if view:
                             channel['totalViews'] = int(view)
                 except Exception as e:
                     print(f"Error processing YouTube channel data: {e}")
-
+            
             elif channel_source == 'invidious':
                 try:
                     channel['channelName'] = channel_data.get('author', 'Unknown')
@@ -577,30 +577,30 @@ def channel(channel_id):
                     thumbnails = channel_data.get('authorThumbnails', [])
                     if thumbnails:
                         channel['channelIcon'] = thumbnails[0].get('url')
-
+                    
                     sub_count = channel_data.get('subCount')
                     if sub_count:
                         channel['subscribers'] = int(sub_count)
                 except Exception as e:
                     print(f"Error processing Invidious channel data: {e}")
-
+    
     except Exception as e:
         print(f"Unexpected error in channel route: {e}")
         import traceback
         traceback.print_exc()
-
+    
     return render_template('channel.html', channel=channel, videos=videos, shorts=shorts)
 
 @app.route('/api/channel/<channel_id>/more')
 def channel_more(channel_id):
     video_type = request.args.get('type', 'videos')
     offset = request.args.get('offset', 0, type=int)
-
+    
     all_videos = []
-
+    
     try:
         uploads_playlist_id = f"UU{channel_id[2:]}"
-
+        
         for key in YOUTUBE_API_KEYS:
             try:
                 url = f"https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&playlistId={uploads_playlist_id}&maxResults=50&startIndex={offset+1}&key={key}"
@@ -622,7 +622,7 @@ def channel_more(channel_id):
                             })
                         except KeyError:
                             continue
-
+                    
                     if video_ids:
                         try:
                             details_url = f"https://www.googleapis.com/youtube/v3/videos?part=contentDetails&id={','.join(video_ids)}&key={key}"
@@ -642,7 +642,7 @@ def channel_more(channel_id):
             except Exception as e:
                 print(f"Error fetching more videos: {e}")
                 continue
-
+        
         # Filter by type
         result_videos = []
         for video in all_videos:
@@ -650,11 +650,11 @@ def channel_more(channel_id):
                 result_videos.append(video)
             elif video_type == 'shorts' and video['is_short']:
                 result_videos.append(video)
-
-        return jsonify({'videos': result_videos, 'error': None})
+        
+        return jsonify({'videos': result_videos})
     except Exception as e:
         print(f"Error in channel_more: {e}")
-        return jsonify({'videos': [], 'error': 'ビデオの読み込みに失敗しました。しばらく後に再度お試しください。'})
+        return jsonify({'videos': []})
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
