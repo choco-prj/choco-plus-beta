@@ -151,13 +151,7 @@
                 <span class="view-count">視聴数: {{ result.views }}</span>
                 {% endif %}
                 {% if result.published_at %}
-                <span class="published-date">
-                    {% if 'ago' in result.published_at or 'month' in result.published_at or 'week' in result.published_at or 'day' in result.published_at or 'hour' in result.published_at %}
-                        {{ result.published_at }}
-                    {% else %}
-                        {{ result.published_at[0:10] }}
-                    {% endif %}
-                </span>
+                <span class="published-date">{{ result.published_at|format_relative_date }}</span>
                 {% endif %}
             </div>
         </div>
