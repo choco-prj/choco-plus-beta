@@ -106,6 +106,7 @@
     <div class="proxy-selector">
         サムネイル:
         <select id="proxy-select" onchange="document.cookie='proxy_type=' + this.value + '; max-age=2592000; path=/'; location.href='/search?q={{ query }}'">
+            <option value="google" {{ 'selected' if proxy_type == 'google' }}>Google</option>
             <option value="self-hosted" {{ 'selected' if proxy_type == 'self-hosted' }}>自サーバー</option>
             <option value="img.youtube.com" {{ 'selected' if proxy_type == 'img.youtube.com' }}>img.youtube.com</option>
             <option value="i.ytimg.com" {{ 'selected' if proxy_type == 'i.ytimg.com' }}>i.ytimg.com</option>
