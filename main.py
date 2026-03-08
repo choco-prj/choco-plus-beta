@@ -156,34 +156,49 @@ def search_invidious(query, page=1, proxy_type="img.youtube.com", search_type="v
                 data = response.json()
                 results = []
                 for item in data:
-                    if search_type == "channel":
-                        results.append({
-                            'id': item['authorId'],
-                            'title': item['author'],
-                            'thumbnail': item.get('authorThumbnails', [{}])[0].get('url', ''),
-                            'type': 'channel',
-                            'description': item.get('description', '')
-                        })
-                    else:
-                        v_id = item['videoId']
-                        published_at = item.get('publishedText', '')
-                        view_count = item.get('viewCount', 0)
-                        if view_count >= 1000000:
-                            views = f"{view_count/1000000:.1f}M"
-                        elif view_count >= 1000:
-                            views = f"{view_count/1000:.1f}K"
+                    try:
+                        if search_type == "channel":
+                            results.append({
+                                'id': item['authorId'],
+                                'title': item['author'],
+                                'thumbnail': item.get('authorThumbnails', [{}])[0].get('url', ''),
+                                'type': 'channel',
+                                'description': item.get('description', '')
+                            })
                         else:
-                            views = str(view_count)
-                        results.append({
-                            'id': v_id,
-                            'title': item['title'],
-                            'thumbnail': get_proxy_thumbnail(v_id, proxy_type),
-                            'channel': item['author'],
-                            'channel_id': item.get('authorId', ''),
-                            'type': 'video',
-                            'views': views,
-                            'published_at': published_at
-                        })
+                            v_id = item.get('videoId', '')
+                            if not v_id:
+                                continue
+                            published_at = item.get('publishedText', '')
+                            
+                            # Parse view count with proper type handling
+                            views = 'N/A'
+                            view_count = item.get('viewCount')
+                            if view_count is not None:
+                                try:
+                                    view_int = int(view_count)
+                                    if view_int >= 1000000:
+                                        views = f"{view_int/1000000:.1f}M"
+                                    elif view_int >= 1000:
+                                        views = f"{view_int/1000:.1f}K"
+                                    else:
+                                        views = str(view_int)
+                                except (ValueError, TypeError):
+                                    views = 'N/A'
+                            
+                            results.append({
+                                'id': v_id,
+                                'title': item.get('title', 'Untitled'),
+                                'thumbnail': get_proxy_thumbnail(v_id, proxy_type),
+                                'channel': item.get('author', 'Unknown Channel'),
+                                'channel_id': item.get('authorId', ''),
+                                'type': 'video',
+                                'views': views,
+                                'published_at': published_at
+                            })
+                    except Exception as e:
+                        print(f"Error parsing search item: {e}")
+                        continue
                 return results, page + 1
         except Exception as e:
             print(f"Invidious error {instance}: {e}")
@@ -356,41 +371,56 @@ def trend():
                     data = response.json()
                     video_ids = []
                     for item in data:
-                        v_id = item['videoId']
-                        video_ids.append(v_id)
-                        
-                        # Get duration from lengthSeconds
-                        duration = ''
-                        length_seconds = item.get('lengthSeconds', 0)
-                        if length_seconds and length_seconds > 0:
-                            duration = format_time_seconds(int(length_seconds))
-                        
-                        # Get view count
-                        view_count = item.get('viewCount', 0)
-                        if view_count > 0:
-                            if view_count >= 1000000:
-                                views = f"{view_count/1000000:.1f}M"
-                            elif view_count >= 1000:
-                                views = f"{view_count/1000:.1f}K"
-                            else:
-                                views = str(view_count)
-                        else:
+                        try:
+                            v_id = item.get('videoId', '')
+                            if not v_id:
+                                continue
+                            video_ids.append(v_id)
+                            
+                            # Get duration from lengthSeconds - Invidious may provide this as int
+                            duration = ''
+                            length_seconds = item.get('lengthSeconds')
+                            if length_seconds:
+                                try:
+                                    length_int = int(length_seconds)
+                                    if length_int > 0:
+                                        duration = format_time_seconds(length_int)
+                                except (ValueError, TypeError):
+                                    duration = ''
+                            
+                            # Get view count - Invidious may not always provide this
                             views = 'N/A'
-                        
-                        # Get published date - use publishedText instead of uploadedAt
-                        published_at = item.get('publishedText', '')
-                        
-                        results.append({
-                            'id': v_id,
-                            'title': item['title'],
-                            'thumbnail': get_proxy_thumbnail(v_id, proxy_type),
-                            'channel': item['author'],
-                            'duration': duration,
-                            'views': views,
-                            'published_at': published_at
-                        })
+                            view_count = item.get('viewCount')
+                            if view_count is not None:
+                                try:
+                                    view_int = int(view_count)
+                                    if view_int >= 1000000:
+                                        views = f"{view_int/1000000:.1f}M"
+                                    elif view_int >= 1000:
+                                        views = f"{view_int/1000:.1f}K"
+                                    else:
+                                        views = str(view_int)
+                                except (ValueError, TypeError):
+                                    views = 'N/A'
+                            
+                            # Get published date - use publishedText
+                            published_at = item.get('publishedText', '')
+                            
+                            results.append({
+                                'id': v_id,
+                                'title': item.get('title', 'Untitled'),
+                                'thumbnail': get_proxy_thumbnail(v_id, proxy_type),
+                                'channel': item.get('author', 'Unknown Channel'),
+                                'duration': duration,
+                                'views': views,
+                                'published_at': published_at
+                            })
+                        except KeyError as e:
+                            print(f"Error parsing trend item: {e}")
+                            continue
                     break
-            except:
+            except Exception as e:
+                print(f"Error fetching from {instance}: {e}")
                 continue
     
     flask_response = make_response(render_template('trend.html', results=results, region=region, proxy_type=proxy_type, date_format=date_format, jp_category=jp_category))
