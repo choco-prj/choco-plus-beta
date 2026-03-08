@@ -462,7 +462,7 @@ def format_time_seconds(seconds):
         return ""
 
 def format_relative_date(iso_date_str):
-    """Format ISO 8601 date to 'YYYY-MM-DD/○日前' format"""
+    """Format ISO 8601 date to relative time format like '2 days ago'"""
     if not iso_date_str:
         return ""
     try:
@@ -473,28 +473,34 @@ def format_relative_date(iso_date_str):
         else:
             dt = datetime.fromisoformat(iso_date_str)
         
-        date_part = dt.strftime('%Y-%m-%d')
         now = datetime.now(dt.tzinfo) if dt.tzinfo else datetime.utcnow()
         delta = now - dt
         days = delta.days
+        seconds = delta.total_seconds()
         
-        if days == 0:
-            relative = "今日"
+        if seconds < 60:
+            return "now"
+        elif seconds < 3600:
+            minutes = int(seconds // 60)
+            return f"{minutes} minute{'s' if minutes > 1 else ''} ago"
+        elif seconds < 86400:
+            hours = int(seconds // 3600)
+            return f"{hours} hour{'s' if hours > 1 else ''} ago"
+        elif days == 0:
+            return "today"
         elif days == 1:
-            relative = "1日前"
+            return "1 day ago"
         elif days < 7:
-            relative = f"{days}日前"
+            return f"{days} days ago"
         elif days < 30:
             weeks = days // 7
-            relative = f"{weeks}週間前" if weeks > 1 else "1週間前"
+            return f"{weeks} week{'s' if weeks > 1 else ''} ago"
         elif days < 365:
             months = days // 30
-            relative = f"{months}ヶ月前" if months > 1 else "1ヶ月前"
+            return f"{months} month{'s' if months > 1 else ''} ago"
         else:
             years = days // 365
-            relative = f"{years}年前" if years > 1 else "1年前"
-        
-        return f"{date_part}/{relative}"
+            return f"{years} year{'s' if years > 1 else ''} ago"
     except:
         return iso_date_str[:10] if len(iso_date_str) >= 10 else iso_date_str
 
