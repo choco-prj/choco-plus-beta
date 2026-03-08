@@ -651,10 +651,10 @@ def channel_more(channel_id):
             elif video_type == 'shorts' and video['is_short']:
                 result_videos.append(video)
 
-        return jsonify({'videos': result_videos})
+        return jsonify({'videos': result_videos, 'error': None})
     except Exception as e:
         print(f"Error in channel_more: {e}")
-        return jsonify({'videos': []})
+        return jsonify({'videos': [], 'error': 'ビデオの読み込みに失敗しました。しばらく後に再度お試しください。'})
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
