@@ -358,12 +358,18 @@ def trend():
                     for item in data:
                         v_id = item['videoId']
                         video_ids.append(v_id)
+                        
+                        # Try to get duration from Invidious response first
+                        duration = ''
+                        if 'lengthSeconds' in item:
+                            duration = format_time_seconds(int(item.get('lengthSeconds', 0)))
+                        
                         results.append({
                             'id': v_id,
                             'title': item['title'],
                             'thumbnail': get_proxy_thumbnail(v_id, proxy_type),
                             'channel': item['author'],
-                            'duration': '',
+                            'duration': duration,
                             'views': 'N/A',
                             'published_at': item.get('uploadedAt', '')
                         })
@@ -381,7 +387,9 @@ def trend():
                                         if result['id'] in stats_map:
                                             item = stats_map[result['id']]
                                             duration = item.get('contentDetails', {}).get('duration', '')
-                                            result['duration'] = parse_iso8601_duration(duration)
+                                            # Only update duration if not already set from Invidious
+                                            if not result['duration'] and duration:
+                                                result['duration'] = parse_iso8601_duration(duration)
                                             
                                             view_count = int(item.get('statistics', {}).get('viewCount', 0))
                                             if view_count >= 1000000:
