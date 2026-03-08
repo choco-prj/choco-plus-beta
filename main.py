@@ -49,12 +49,15 @@ INVIDIOUS_INSTANCES = [
     "https://invidious.dhusch.de"
 ]
 
-def get_proxy_thumbnail(video_id, proxy_type="img.youtube.com"):
+def get_proxy_thumbnail(video_id, proxy_type="google"):
     if proxy_type == "i.ytimg.com":
         return f"https://i.ytimg.com/vi/{video_id}/hqdefault.jpg"
     elif proxy_type == "self-hosted":
         # Self-hosted proxy thumbnail method
         return f"/api/thumbnail/{video_id}"
+    elif proxy_type == "google":
+        # Google OpenSocial images API
+        return f"https://images1-focus-opensocial.googleusercontent.com/gadgets/proxy?container=focus&refresh=2678400&url=https://i.ytimg.com/vi/{video_id}/hqdefault.jpg"
     return f"https://img.youtube.com/vi/{video_id}/hqdefault.jpg"
 
 def parse_iso8601_duration(duration_str):
@@ -194,7 +197,7 @@ def search_invidious(query, page=1, proxy_type="img.youtube.com", search_type="v
 @app.route('/')
 def index():
     # Get preferences from cookies or set defaults
-    proxy_type = request.cookies.get('proxy_type', 'self-hosted')
+    proxy_type = request.cookies.get('proxy_type', 'google')
     search_mode = request.cookies.get('search_mode', 'inv_first')
     
     response = make_response(render_template('index.html', proxy_type=proxy_type, search_mode=search_mode))
@@ -211,7 +214,7 @@ def search():
     mode = request.cookies.get('search_mode', 'inv_first')
     page = request.args.get('page', 1, type=int)
     token = request.args.get('token', None)
-    proxy_type = request.cookies.get('proxy_type', 'self-hosted')
+    proxy_type = request.cookies.get('proxy_type', 'google')
     search_type = request.cookies.get('search_type', 'video')
     
     if not query:
@@ -239,7 +242,7 @@ def search():
     response.set_cookie('search_type', search_type, max_age=2592000)
     return response
 
-def get_japan_trend_by_category(category='all', proxy_type='self-hosted'):
+def get_japan_trend_by_category(category='all', proxy_type='google'):
     """
     日本トレンドをカテゴリ別に取得します
     
@@ -297,7 +300,7 @@ def get_japan_trend_by_category(category='all', proxy_type='self-hosted'):
 @app.route('/trend')
 def trend():
     region = request.cookies.get('trend_region', 'JP')
-    proxy_type = request.cookies.get('proxy_type', 'self-hosted')
+    proxy_type = request.cookies.get('proxy_type', 'google')
     jp_category = request.cookies.get('trend_category', 'all')
     results = []
     
