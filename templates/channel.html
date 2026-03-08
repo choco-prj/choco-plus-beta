@@ -458,8 +458,8 @@
 <script>
     let videosFetched = {{ videos|length }};
     let shortsFetched = {{ shorts|length }};
-    let nextVideoOffset = videosFetched;
-    let nextShortsOffset = shortsFetched;
+    let nextVideoOffset = videosFetched + shortsFetched;
+    let nextShortsOffset = videosFetched + shortsFetched;
     const channelId = window.location.pathname.split('/').pop();
     
     document.addEventListener('DOMContentLoaded', function() {
@@ -511,14 +511,6 @@
         fetch(`/api/channel/${channelId}/more?type=${type}&offset=${offset}`)
             .then(res => res.json())
             .then(data => {
-                if (data.error) {
-                    loadMoreBtn.classList.remove('hidden');
-                    loadMoreBtn.innerHTML = data.error;
-                    loadMoreBtn.disabled = false;
-                    loadingSpinner.classList.add('hidden');
-                    return;
-                }
-                
                 const videos = data.videos || [];
                 videos.forEach(video => {
                     const card = document.createElement('a');
@@ -566,8 +558,7 @@
             .catch(err => {
                 console.error('Error loading more videos:', err);
                 loadMoreBtn.classList.remove('hidden');
-                loadMoreBtn.innerHTML = 'エラーが発生しました。再度お試しください。';
-                loadMoreBtn.disabled = false;
+                loadMoreBtn.innerHTML = 'エラー: 再試行';
                 loadingSpinner.classList.add('hidden');
             });
     }
