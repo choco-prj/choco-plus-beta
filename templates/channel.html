@@ -297,6 +297,21 @@
         font-weight: bold;
     }
     
+    .date-format-selector {
+        font-size: 0.9rem;
+        color: #aaa;
+        margin-left: auto;
+    }
+    
+    .date-format-selector select {
+        background: #2a2a2a;
+        color: #fff;
+        border: 1px solid #444;
+        padding: 5px;
+        border-radius: 5px;
+        margin-left: 10px;
+    }
+    
     .no-videos {
         grid-column: 1 / -1;
         text-align: center;
@@ -344,6 +359,13 @@
         <button class="channel-tab active" data-tab="videos">動画{% if videos %} ({{ videos|length }}){% endif %}</button>
         {% if shorts %}<button class="channel-tab" data-tab="shorts">ショート{% if shorts %} ({{ shorts|length }}){% endif %}</button>{% endif %}
         <button class="channel-tab" data-tab="about">概要</button>
+        <div class="date-format-selector">
+            日付:
+            <select onchange="document.cookie = 'date_format=' + this.value + '; max-age=2592000; path=/'; location.reload()">
+                <option value="ago" {{ 'selected' if date_format == 'ago' or not date_format }}>~ago</option>
+                <option value="date" {{ 'selected' if date_format == 'date' }}>YYYY-MM-DD</option>
+            </select>
+        </div>
     </div>
 
     <div class="channel-tab-content" id="tab-videos">
@@ -362,7 +384,7 @@
                         <span>{{ video.views }}</span>
                         {% if video.published %}
                         <span class="separator">•</span>
-                        <span>{{ video.published }}</span>
+                        <span>{{ video.published|format_date(date_format) if '/' not in video.published|string else video.published }}</span>
                         {% endif %}
                     </p>
                 </div>
