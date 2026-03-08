@@ -10,7 +10,7 @@
     <div style="max-width: 600px; margin: 0 auto; background: #1e1e1e; padding: 40px; border-radius: 24px; border: 1px solid #333;">
         <form action="/search" method="get" id="main-search-form">
             <div class="search-form" style="margin-bottom: 30px; position: relative;">
-                <input type="text" name="q" placeholder="動画を検索">
+                <input type="text" id="main-search-input" name="q" placeholder="動画を検索">
                 <button type="submit">検索</button>
             </div>
             
@@ -70,7 +70,7 @@
                 }
                 
                 document.getElementById('main-search-form').addEventListener('submit', function(e) {
-                    const query = document.querySelector('input[name="q"]').value.trim();
+                    const query = document.getElementById('main-search-input').value.trim();
                     if (!query) {
                         e.preventDefault();
                         alert('検索内容を入力してください');
