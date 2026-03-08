@@ -10,7 +10,7 @@
     <div style="max-width: 600px; margin: 0 auto; background: #1e1e1e; padding: 40px; border-radius: 24px; border: 1px solid #333;">
         <form action="/search" method="get" id="main-search-form">
             <div class="search-form" style="margin-bottom: 30px; position: relative;">
-                <input type="text" name="q" placeholder="動画を検索" required>
+                <input type="text" name="q" placeholder="動画を検索">
                 <button type="submit">検索</button>
             </div>
             
@@ -82,8 +82,6 @@
                     document.cookie = 'proxy_type=' + proxy + '; max-age=2592000; path=/';
                     document.cookie = 'search_mode=' + mode + '; max-age=2592000; path=/';
                     document.cookie = 'search_type=' + searchType + '; max-age=2592000; path=/';
-                    
-                    return true;
                 });
             });
         </script>
