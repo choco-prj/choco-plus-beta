@@ -456,8 +456,10 @@
 </div>
 
 <script>
-    let nextVideoOffset = 50;
-    let nextShortsOffset = 50;
+    let videosFetched = {{ videos|length }};
+    let shortsFetched = {{ shorts|length }};
+    let nextVideoOffset = videosFetched + shortsFetched;
+    let nextShortsOffset = videosFetched + shortsFetched;
     const channelId = window.location.pathname.split('/').pop();
     
     document.addEventListener('DOMContentLoaded', function() {
@@ -539,8 +541,10 @@
                 
                 if (videos.length > 0) {
                     if (type === 'videos') {
+                        videosFetched += videos.length;
                         nextVideoOffset += 50;
                     } else {
+                        shortsFetched += videos.length;
                         nextShortsOffset += 50;
                     }
                     loadMoreBtn.classList.remove('hidden');
