@@ -3,7 +3,8 @@ from flask_cors import CORS
 import requests
 import random
 import os
-import time
+import urllib.parse
+from datetime import timedelta
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'choco-tube-dev-key')
@@ -39,7 +40,7 @@ INVIDIOUS_INSTANCES = [
     "https://inv.kamuridesu.com",
     "https://inv.thepixora.com",
     "https://invidious.tiekoetter.com",
-    "https://youtube.mosingsmang.com",
+    "https://youtube.mosesmang.com",
     "https://invidious.ducks.party",
     "https://inv.zoomerville.com",
     "https://invidious.materialio.us",
@@ -49,59 +50,6 @@ INVIDIOUS_INSTANCES = [
     "https://invidious.reallyaweso.me",
     "https://invidious.dhusch.de"
 ]
-
-STREAM_API = "https://simple-yt-stream.onrender.com/api/video/"
-M3U8_API = "https://simple-yt-stream.onrender.com/api/m3u8/"
-
-def get_random_headers():
-    """Return random user agent headers"""
-    user_agents = [
-        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.6 Safari/605.1.15',
-        'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:92.0) Gecko/20100101 Firefox/92.0',
-    ]
-    return {'User-Agent': random.choice(user_agents)}
-
-def get_stream_url(video_id):
-    """Fetch stream URLs from multiple APIs"""
-    urls = {
-        'primary': None,
-        'fallback': None,
-        'm3u8': None,
-        'embed': f"https://www.youtube.com/embed/{video_id}?autoplay=1"
-    }
-    
-    try:
-        res = requests.get(f"{STREAM_API}{video_id}", headers=get_random_headers(), timeout=(3, 6))
-        if res.status_code == 200:
-            data = res.json()
-            formats = data.get('formats', [])
-            
-            for fmt in formats:
-                if fmt.get('itag') == '18':
-                    urls['primary'] = fmt.get('url')
-                    break
-            
-            if not urls['primary']:
-                for fmt in formats:
-                    if fmt.get('url') and fmt.get('vcodec') != 'none':
-                        urls['fallback'] = fmt.get('url')
-                        break
-    except Exception as e:
-        print(f"Stream API error: {e}")
-    
-    try:
-        res = requests.get(f"{M3U8_API}{video_id}", headers=get_random_headers(), timeout=(3, 6))
-        if res.status_code == 200:
-            data = res.json()
-            m3u8_formats = data.get('m3u8_formats', [])
-            if m3u8_formats:
-                best = max(m3u8_formats, key=lambda x: int(x.get('resolution', '0x0').split('x')[-1] or 0))
-                urls['m3u8'] = best.get('url')
-    except Exception as e:
-        print(f"M3U8 API error: {e}")
-    
-    return urls
 
 def get_proxy_thumbnail(video_id, proxy_type="wsrv.nl"):
     if proxy_type == "i.ytimg.com":
@@ -512,10 +460,313 @@ def proxy_thumbnail(video_id):
     # Fallback to 1x1 transparent pixel if fetch fails
     return bytes.fromhex('47494638396101000100800000FFFFFF00000021F90400000000002C00000000010001000002024401003B'), 200, {'Content-Type': 'image/gif'}
 
+def get_comments(video_id):
+    path = f"/comments/{urllib.parse.quote(video_id)}?hl=jp"
+    data = request_invidious_api(path)
+
+    if not data:
+        return []
+
+    comments = []
+    for item in data.get('comments', []):
+        thumbnails = item.get('authorThumbnails', [])
+        author_thumbnail = thumbnails[-1].get('url', '') if thumbnails else ''
+        comments.append({
+            'author': item.get('author', ''),
+            'authorThumbnail': author_thumbnail,
+            'authorId': item.get('authorId', ''),
+            'content': item.get('contentHtml', '').replace('\n', '<br>'),
+            'likes': item.get('likeCount', 0),
+            'published': item.get('publishedText', '')
+        })
+
+    return comments
+
+def request_invidious_api(path, timeout=(2, 5)):
+    random_instances = random.sample(INVIDIOUS_INSTANCES, min(3, len(INVIDIOUS_INSTANCES)))
+    for instance in random_instances:
+        try:
+            url = instance + 'api/v1' + path
+            res = requests.get(url, timeout=timeout)
+            if res.status_code == 200:
+                return res.json()
+        except:
+            continue
+    return None
+
 @app.route('/watch/<video_id>')
 def watch(video_id):
-    streams = get_stream_url(video_id)
-    return render_template('watch.html', video_id=video_id, streams=streams)
+    video_info = None
+    comments = []
+    streams = {'primary': None, 'fallback': None, 'm3u8': None, 'embed': f"https://www.youtube-nocookie.com/embed/{video_id}?autoplay=1", 'education': f"https://www.youtubeeducation.com/embed/{video_id}?autoplay=1&rel=0&modestbranding=1"}
+    
+    try:
+        path = f"/videos/{urllib.parse.quote(video_id)}"
+        data = request_invidious_api(path, timeout=(5, 15))
+        
+        if data:
+            related_videos = []
+            recommended = data.get('recommendedVideos', data.get('recommendedvideo', []))
+            for item in recommended[:20]:
+                length_seconds = item.get('lengthSeconds', 0)
+                related_videos.append({
+                    'id': item.get('videoId', ''),
+                    'title': item.get('title', ''),
+                    'author': item.get('author', ''),
+                    'authorId': item.get('authorId', ''),
+                    'views': item.get('viewCountText', ''),
+                    'thumbnail': f"https://i.ytimg.com/vi/{item.get('videoId', '')}/mqdefault.jpg",
+                    'length': str(timedelta(seconds=length_seconds)) if length_seconds else ''
+                })
+            
+            author_thumbnails = data.get('authorThumbnails', [])
+            author_thumbnail = author_thumbnails[-1].get('url', '') if author_thumbnails else ''
+            
+            video_info = {
+                'title': data.get('title', ''),
+                'description': data.get('descriptionHtml', '').replace('\n', '<br>'),
+                'author': data.get('author', ''),
+                'authorId': data.get('authorId', ''),
+                'authorThumbnail': author_thumbnail,
+                'thumbnail': f"/api/proxy-thumbnail?video_id={video_id}",
+                'views': data.get('viewCount', 0),
+                'likes': data.get('likeCount', 0),
+                'subscribers': data.get('subCountText', ''),
+                'published': data.get('publishedText', ''),
+                'lengthText': str(timedelta(seconds=data.get('lengthSeconds', 0))),
+                'related': related_videos,
+                'videoUrls': [],
+                'streamUrls': [],
+                'highstreamUrl': None
+            }
+            
+            comments = get_comments(video_id)
+    except:
+        pass
+    
+    return render_template('watch.html', video_id=video_id, video=video_info, streams=streams, comments=comments, mode='stream', playlist_id=None, playlist_index=0, playlist_videos=[])
+
+@app.route('/w/<video_id>')
+def watch_high_quality(video_id):
+    video_info = None
+    comments = []
+    streams = {'primary': None, 'fallback': None, 'm3u8': None, 'embed': f"https://www.youtube-nocookie.com/embed/{video_id}?autoplay=1", 'education': f"https://www.youtubeeducation.com/embed/{video_id}?autoplay=1&rel=0&modestbranding=1"}
+    
+    try:
+        path = f"/videos/{urllib.parse.quote(video_id)}"
+        data = request_invidious_api(path, timeout=(5, 15))
+        
+        if data:
+            related_videos = []
+            recommended = data.get('recommendedVideos', data.get('recommendedvideo', []))
+            for item in recommended[:20]:
+                length_seconds = item.get('lengthSeconds', 0)
+                related_videos.append({
+                    'id': item.get('videoId', ''),
+                    'title': item.get('title', ''),
+                    'author': item.get('author', ''),
+                    'authorId': item.get('authorId', ''),
+                    'views': item.get('viewCountText', ''),
+                    'thumbnail': f"https://i.ytimg.com/vi/{item.get('videoId', '')}/mqdefault.jpg",
+                    'length': str(timedelta(seconds=length_seconds)) if length_seconds else ''
+                })
+            
+            author_thumbnails = data.get('authorThumbnails', [])
+            author_thumbnail = author_thumbnails[-1].get('url', '') if author_thumbnails else ''
+            
+            video_info = {
+                'title': data.get('title', ''),
+                'description': data.get('descriptionHtml', '').replace('\n', '<br>'),
+                'author': data.get('author', ''),
+                'authorId': data.get('authorId', ''),
+                'authorThumbnail': author_thumbnail,
+                'thumbnail': f"/api/proxy-thumbnail?video_id={video_id}",
+                'views': data.get('viewCount', 0),
+                'likes': data.get('likeCount', 0),
+                'subscribers': data.get('subCountText', ''),
+                'published': data.get('publishedText', ''),
+                'lengthText': str(timedelta(seconds=data.get('lengthSeconds', 0))),
+                'related': related_videos,
+                'videoUrls': [],
+                'streamUrls': [],
+                'highstreamUrl': None
+            }
+            
+            comments = get_comments(video_id)
+    except:
+        pass
+    
+    return render_template('watch.html', video_id=video_id, video=video_info, streams=streams, comments=comments, mode='high', playlist_id=None, playlist_index=0, playlist_videos=[])
+
+@app.route('/ume/<video_id>')
+def watch_embed(video_id):
+    video_info = None
+    comments = []
+    streams = {'primary': None, 'fallback': None, 'm3u8': None, 'embed': f"https://www.youtube-nocookie.com/embed/{video_id}?autoplay=1", 'education': f"https://www.youtubeeducation.com/embed/{video_id}?autoplay=1&rel=0&modestbranding=1"}
+    
+    try:
+        path = f"/videos/{urllib.parse.quote(video_id)}"
+        data = request_invidious_api(path, timeout=(5, 15))
+        
+        if data:
+            related_videos = []
+            recommended = data.get('recommendedVideos', data.get('recommendedvideo', []))
+            for item in recommended[:20]:
+                length_seconds = item.get('lengthSeconds', 0)
+                related_videos.append({
+                    'id': item.get('videoId', ''),
+                    'title': item.get('title', ''),
+                    'author': item.get('author', ''),
+                    'authorId': item.get('authorId', ''),
+                    'views': item.get('viewCountText', ''),
+                    'thumbnail': f"https://i.ytimg.com/vi/{item.get('videoId', '')}/mqdefault.jpg",
+                    'length': str(timedelta(seconds=length_seconds)) if length_seconds else ''
+                })
+            
+            author_thumbnails = data.get('authorThumbnails', [])
+            author_thumbnail = author_thumbnails[-1].get('url', '') if author_thumbnails else ''
+            
+            video_info = {
+                'title': data.get('title', ''),
+                'description': data.get('descriptionHtml', '').replace('\n', '<br>'),
+                'author': data.get('author', ''),
+                'authorId': data.get('authorId', ''),
+                'authorThumbnail': author_thumbnail,
+                'thumbnail': f"/api/proxy-thumbnail?video_id={video_id}",
+                'views': data.get('viewCount', 0),
+                'likes': data.get('likeCount', 0),
+                'subscribers': data.get('subCountText', ''),
+                'published': data.get('publishedText', ''),
+                'lengthText': str(timedelta(seconds=data.get('lengthSeconds', 0))),
+                'related': related_videos,
+                'videoUrls': [],
+                'streamUrls': [],
+                'highstreamUrl': None
+            }
+            
+            comments = get_comments(video_id)
+    except:
+        pass
+    
+    return render_template('watch.html', video_id=video_id, video=video_info, streams=streams, comments=comments, mode='embed', playlist_id=None, playlist_index=0, playlist_videos=[])
+
+@app.route('/edu/<video_id>')
+def watch_education(video_id):
+    video_info = None
+    comments = []
+    streams = {'primary': None, 'fallback': None, 'm3u8': None, 'embed': f"https://www.youtube-nocookie.com/embed/{video_id}?autoplay=1", 'education': f"https://www.youtubeeducation.com/embed/{video_id}?autoplay=1&rel=0&modestbranding=1"}
+    
+    try:
+        path = f"/videos/{urllib.parse.quote(video_id)}"
+        data = request_invidious_api(path, timeout=(5, 15))
+        
+        if data:
+            related_videos = []
+            recommended = data.get('recommendedVideos', data.get('recommendedvideo', []))
+            for item in recommended[:20]:
+                length_seconds = item.get('lengthSeconds', 0)
+                related_videos.append({
+                    'id': item.get('videoId', ''),
+                    'title': item.get('title', ''),
+                    'author': item.get('author', ''),
+                    'authorId': item.get('authorId', ''),
+                    'views': item.get('viewCountText', ''),
+                    'thumbnail': f"https://i.ytimg.com/vi/{item.get('videoId', '')}/mqdefault.jpg",
+                    'length': str(timedelta(seconds=length_seconds)) if length_seconds else ''
+                })
+            
+            author_thumbnails = data.get('authorThumbnails', [])
+            author_thumbnail = author_thumbnails[-1].get('url', '') if author_thumbnails else ''
+            
+            video_info = {
+                'title': data.get('title', ''),
+                'description': data.get('descriptionHtml', '').replace('\n', '<br>'),
+                'author': data.get('author', ''),
+                'authorId': data.get('authorId', ''),
+                'authorThumbnail': author_thumbnail,
+                'thumbnail': f"/api/proxy-thumbnail?video_id={video_id}",
+                'views': data.get('viewCount', 0),
+                'likes': data.get('likeCount', 0),
+                'subscribers': data.get('subCountText', ''),
+                'published': data.get('publishedText', ''),
+                'lengthText': str(timedelta(seconds=data.get('lengthSeconds', 0))),
+                'related': related_videos,
+                'videoUrls': [],
+                'streamUrls': [],
+                'highstreamUrl': None
+            }
+            
+            comments = get_comments(video_id)
+    except:
+        pass
+    
+    return render_template('watch.html', video_id=video_id, video=video_info, streams=streams, comments=comments, mode='education', playlist_id=None, playlist_index=0, playlist_videos=[])
+
+@app.route('/api/video-info/<video_id>')
+def api_video_info(video_id):
+    try:
+        path = f"/videos/{urllib.parse.quote(video_id)}"
+        data = request_invidious_api(path, timeout=(5, 15))
+        
+        if not data:
+            return jsonify({'error': '動画情報を取得できませんでした'}), 404
+        
+        related_videos = []
+        recommended = data.get('recommendedVideos', data.get('recommendedvideo', []))
+        for item in recommended[:20]:
+            length_seconds = item.get('lengthSeconds', 0)
+            related_videos.append({
+                'id': item.get('videoId', ''),
+                'title': item.get('title', ''),
+                'author': item.get('author', ''),
+                'authorId': item.get('authorId', ''),
+                'views': item.get('viewCountText', ''),
+                'thumbnail': f"https://i.ytimg.com/vi/{item.get('videoId', '')}/mqdefault.jpg",
+                'length': str(timedelta(seconds=length_seconds)) if length_seconds else ''
+            })
+        
+        author_thumbnails = data.get('authorThumbnails', [])
+        author_thumbnail = author_thumbnails[-1].get('url', '') if author_thumbnails else ''
+        
+        return jsonify({
+            'title': data.get('title', ''),
+            'description': data.get('descriptionHtml', '').replace('\n', '<br>'),
+            'author': data.get('author', ''),
+            'authorId': data.get('authorId', ''),
+            'authorThumbnail': author_thumbnail,
+            'views': data.get('viewCount', 0),
+            'likes': data.get('likeCount', 0),
+            'subscribers': data.get('subCountText', ''),
+            'published': data.get('publishedText', ''),
+            'related': related_videos
+        })
+    except Exception as e:
+        print(f"API video info error: {e}")
+        return jsonify({'error': 'エラーが発生しました'}), 500
+
+@app.route('/api/proxy-thumbnail')
+def api_proxy_thumbnail():
+    video_id = request.args.get('video_id', '')
+    if not video_id:
+        return jsonify({'error': 'video_id is required'}), 400
+    
+    try:
+        url = f"https://i.ytimg.com/vi/{video_id}/hqdefault.jpg"
+        response = requests.get(url, timeout=5)
+        if response.status_code == 200:
+            return response.content, 200, {'Content-Type': response.headers.get('Content-Type', 'image/jpeg')}
+    except:
+        pass
+    
+    try:
+        fallback_url = f"https://i.ytimg.com/vi/{video_id}/mqdefault.jpg"
+        response = requests.get(fallback_url, timeout=5)
+        if response.status_code == 200:
+            return response.content, 200, {'Content-Type': response.headers.get('Content-Type', 'image/jpeg')}
+    except:
+        pass
+    
+    return jsonify({'error': 'Thumbnail not found'}), 404
 
 def format_view_count(count):
     if isinstance(count, str):
