@@ -89,6 +89,7 @@
     </div>
     
     <div style="display: flex; gap: 20px;">
+        {% if region == 'JP' %}
         <div class="date-format-selector">
             日付:
             <select onchange="document.cookie = 'date_format=' + this.value + '; max-age=2592000; path=/'; location.href='/trend'">
@@ -96,12 +97,14 @@
                 <option value="date" {{ 'selected' if date_format == 'date' }}>YYYY-MM-DD</option>
             </select>
         </div>
+        {% endif %}
         <div class="proxy-selector">
             サムネイル:
             <select onchange="document.cookie = 'proxy_type=' + this.value + '; max-age=2592000; path=/'; location.href='/trend'">
                 <option value="img.youtube.com" {{ 'selected' if proxy_type == 'img.youtube.com' }}>img.youtube.com</option>
                 <option value="i.ytimg.com" {{ 'selected' if proxy_type == 'i.ytimg.com' }}>i.ytimg.com</option>
                 <option value="self-hosted" {{ 'selected' if proxy_type == 'self-hosted' }}>自サーバー (Self-hosted)</option>
+                <option value="wsrv.nl" {{ 'selected' if proxy_type == 'wsrv.nl' }}>wsrv.nl</option>
             </select>
         </div>
     </div>
