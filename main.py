@@ -472,7 +472,7 @@ STREAM_APIS = [
 def fetch_stream_from_api(api_url, video_id):
     """Fetch stream URL from a single API"""
     try:
-        response = requests.get(f"{api_url}/stream?id={video_id}", timeout=5)
+        response = requests.get(f"{api_url}/stream?id={video_id}", timeout=30)
         if response.status_code == 200:
             data = response.json()
             if data.get('url'):
