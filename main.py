@@ -462,6 +462,14 @@ def proxy_thumbnail(video_id):
 def watch(video_id):
     return render_template('watch.html', video_id=video_id)
 
+@app.route('/ume/<video_id>')
+def ume_player(video_id):
+    return render_template('play.html', video_id=video_id, mode='nocookie')
+
+@app.route('/edu/<video_id>')
+def edu_player(video_id):
+    return render_template('play.html', video_id=video_id, mode='education')
+
 def format_view_count(count):
     if isinstance(count, str):
         try:
