@@ -19,23 +19,118 @@
         gap: 15px;
     }
 
+    .player-wrapper {
+        position: relative;
+    }
+
+    .stream-buttons {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 10px;
+    }
+
+    .stream-btn {
+        padding: 8px 16px;
+        border: none;
+        border-radius: 4px;
+        background: #333;
+        color: #fff;
+        cursor: pointer;
+        font-weight: 600;
+        font-size: 14px;
+        transition: all 0.2s;
+    }
+
+    .stream-btn.active {
+        background: #ff6b00;
+        color: white;
+    }
+
+    .stream-btn:hover {
+        background: #444;
+    }
+
+    .stream-btn.active:hover {
+        background: #ff8533;
+    }
+
+    .quality-selector {
+        display: none;
+        margin-bottom: 10px;
+        gap: 10px;
+        flex-wrap: wrap;
+    }
+
+    .quality-selector.show {
+        display: flex;
+    }
+
+    .quality-tabs {
+        display: flex;
+        gap: 5px;
+        margin-bottom: 10px;
+    }
+
+    .quality-tab {
+        padding: 6px 12px;
+        border: none;
+        border-radius: 4px;
+        background: #222;
+        color: #aaa;
+        cursor: pointer;
+        font-size: 13px;
+        transition: all 0.2s;
+    }
+
+    .quality-tab.active {
+        background: #ff6b00;
+        color: white;
+    }
+
+    .quality-options {
+        display: flex;
+        gap: 5px;
+        flex-wrap: wrap;
+    }
+
+    .quality-option {
+        padding: 6px 12px;
+        border: 1px solid #444;
+        border-radius: 4px;
+        background: #222;
+        color: #aaa;
+        cursor: pointer;
+        font-size: 12px;
+        transition: all 0.2s;
+    }
+
+    .quality-option:hover {
+        border-color: #ff6b00;
+    }
+
+    .quality-option.selected {
+        background: #ff6b00;
+        color: white;
+        border-color: #ff6b00;
+    }
+
     .player-container {
         position: relative;
         width: 100%;
-        padding-top: 56.25%;
+        height: 500px;
         background: #000;
         border-radius: 8px;
         overflow: hidden;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.6);
-        max-width: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
     }
 
-    .player-container video {
-        position: absolute;
-        top: 0;
-        left: 0;
+    .player-container video,
+    .player-container audio {
         width: 100%;
         height: 100%;
+        object-fit: contain;
     }
 
     .player-error {
@@ -82,12 +177,12 @@
         background: #f0f0f0;
     }
 
-    .loading-container {
+    .loading-spinner {
         display: flex;
         flex-direction: column;
-        justify-content: center;
         align-items: center;
-        height: 100%;
+        justify-content: center;
+        gap: 15px;
     }
 
     .spinner {
@@ -157,20 +252,6 @@
         color: #aaa;
     }
 
-    .related-videos {
-        background: #1a1a1a;
-        border-radius: 8px;
-        overflow: hidden;
-    }
-
-    .related-title {
-        padding: 15px;
-        font-weight: 600;
-        border-bottom: 1px solid #333;
-        color: #fff;
-        font-size: 14px;
-    }
-
     .comments-section {
         background: #1a1a1a;
         padding: 20px;
@@ -193,14 +274,36 @@
         font-size: 14px;
     }
 
+    .related-videos {
+        background: #1a1a1a;
+        border-radius: 8px;
+        overflow: hidden;
+    }
+
+    .related-title {
+        padding: 15px;
+        font-weight: 600;
+        border-bottom: 1px solid #333;
+        color: #fff;
+        font-size: 14px;
+    }
+
     @media (max-width: 900px) {
         .watch-container {
             grid-template-columns: 1fr;
         }
 
+        .player-container {
+            height: 350px;
+        }
+
         .video-info {
             flex-direction: column;
             gap: 10px;
+        }
+
+        .stream-buttons {
+            flex-wrap: wrap;
         }
     }
 </style>
@@ -209,11 +312,32 @@
 {% block content %}
 <div class="watch-container">
     <div class="video-section">
-        <!-- Player Container -->
-        <div class="player-container" id="playerContainer">
-            <div class="loading-container">
-                <div class="spinner"></div>
-                <p style="color: #aaa; margin-top: 15px; font-size: 14px;">ストリームを読み込み中...</p>
+        <!-- Stream Method Buttons -->
+        <div class="stream-buttons">
+            <button class="stream-btn active" onclick="switchStream('ytdlp')" id="btn-ytdlp">ytdlpストリーム</button>
+            <button class="stream-btn" onclick="switchStream('invidious')" id="btn-invidious">invidiousストリーム</button>
+        </div>
+
+        <!-- Quality Selector (Invidious only) -->
+        <div class="quality-selector" id="qualitySelector">
+            <div style="width: 100%;">
+                <div class="quality-tabs">
+                    <button class="quality-tab active" onclick="switchQualityType('mp4')">MP4</button>
+                    <button class="quality-tab" onclick="switchQualityType('video')">映像</button>
+                    <button class="quality-tab" onclick="switchQualityType('audio')">音声</button>
+                    <button class="quality-tab" onclick="switchQualityType('hls')">HLS</button>
+                </div>
+                <div class="quality-options" id="qualityOptions"></div>
+            </div>
+        </div>
+
+        <!-- Video Player -->
+        <div class="player-wrapper">
+            <div class="player-container" id="playerContainer">
+                <div class="loading-spinner">
+                    <div class="spinner"></div>
+                    <p style="color: #aaa; font-size: 14px;">ストリームを読み込み中...</p>
+                </div>
             </div>
         </div>
 
@@ -226,7 +350,6 @@
                     {% if published_at %}<span>{{ published_at }}</span>{% endif %}
                 </div>
 
-                <!-- Channel Info -->
                 {% if channel_name %}
                     <div class="channel-info">
                         {% if channel_icon %}
@@ -243,7 +366,7 @@
             </div>
         {% endif %}
 
-        <!-- Comments Section (Placeholder) -->
+        <!-- Comments Section -->
         <div class="comments-section">
             <div class="comments-title">コメント</div>
             <div class="comment-placeholder">コメント機能は準備中です</div>
@@ -258,37 +381,150 @@
 </div>
 
 <script>
-    document.addEventListener('DOMContentLoaded', function() {
-        const videoId = '{{ video_id }}';
-        const playerContainer = document.getElementById('playerContainer');
+    let currentStream = 'ytdlp';
+    let currentQualityType = 'mp4';
+    let invidiousData = null;
 
-        // ストリーム URL を取得
+    const videoId = '{{ video_id }}';
+    const playerContainer = document.getElementById('playerContainer');
+
+    // 初期ロード
+    loadStream('ytdlp');
+
+    function switchStream(type) {
+        currentStream = type;
+        
+        // ボタンのスタイル更新
+        document.getElementById('btn-ytdlp').classList.toggle('active', type === 'ytdlp');
+        document.getElementById('btn-invidious').classList.toggle('active', type === 'invidious');
+        
+        // クオリティセレクタの表示非表示
+        document.getElementById('qualitySelector').classList.toggle('show', type === 'invidious');
+        
+        loadStream(type);
+    }
+
+    function loadStream(type) {
+        if (type === 'ytdlp') {
+            loadYtdlpStream();
+        } else {
+            loadInvidiousStream();
+        }
+    }
+
+    function loadYtdlpStream() {
+        playerContainer.innerHTML = '<div class="loading-spinner"><div class="spinner"></div><p style="color: #aaa; font-size: 14px;">ストリームを読み込み中...</p></div>';
+        
         fetch('/api/stream/' + videoId)
             .then(response => response.json())
             .then(data => {
                 if (data.stream_url) {
-                    // ストリーム URL を取得できた場合
-                    playerContainer.innerHTML = `<video controls style="width: 100%; height: 100%;"><source src="${data.stream_url}" type="video/mp4">このブラウザはビデオタグに対応していません</video>`;
+                    playerContainer.innerHTML = `<video controls><source src="${data.stream_url}" type="video/mp4"></video>`;
                 } else {
-                    // エラーメッセージを表示
-                    showError();
+                    showError('ストリームリンクを取得できませんでした。再読み込みしてください');
                 }
             })
             .catch(error => {
-                console.error('Error fetching stream:', error);
-                showError();
+                console.error('Error:', error);
+                showError('ストリームリンクを取得できませんでした。再読み込みしてください');
             });
+    }
 
-        function showError() {
-            playerContainer.innerHTML = `
-                <div class="player-error">
-                    <div class="error-message-box">
-                        <div class="error-message">ストリームリンクを取得できませんでした。<br>再読み込みしてください</div>
-                        <button class="reload-button" onclick="location.reload()">再読み込み</button>
-                    </div>
-                </div>
-            `;
+    function loadInvidiousStream() {
+        playerContainer.innerHTML = '<div class="loading-spinner"><div class="spinner"></div><p style="color: #aaa; font-size: 14px;">ストリームを読み込み中...</p></div>';
+        
+        fetch('/api/invidious-stream/' + videoId)
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    invidiousData = data;
+                    updateQualityOptions();
+                    loadQuality('mp4', Object.keys(data.formats.mp4)[0] || null);
+                } else {
+                    showError('invidious取得に失敗しました。再読み込みしてください');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showError('invidious取得に失敗しました。再読み込みしてください');
+            });
+    }
+
+    function updateQualityOptions() {
+        const optionsDiv = document.getElementById('qualityOptions');
+        optionsDiv.innerHTML = '';
+        
+        const formats = invidiousData.formats[currentQualityType] || {};
+        const keys = Object.keys(formats);
+        
+        keys.forEach((key, index) => {
+            const option = document.createElement('button');
+            option.className = 'quality-option' + (index === 0 ? ' selected' : '');
+            option.textContent = key;
+            option.onclick = () => loadQuality(currentQualityType, key);
+            optionsDiv.appendChild(option);
+        });
+    }
+
+    function switchQualityType(type) {
+        currentQualityType = type;
+        
+        // タブボタンの更新
+        document.querySelectorAll('.quality-tab').forEach(btn => {
+            btn.classList.toggle('active', btn.textContent.includes(type === 'mp4' ? 'MP4' : type === 'video' ? '映像' : type === 'audio' ? '音声' : 'HLS'));
+        });
+        
+        updateQualityOptions();
+        
+        const formats = invidiousData.formats[type] || {};
+        const firstKey = Object.keys(formats)[0];
+        if (firstKey) {
+            loadQuality(type, firstKey);
         }
-    });
+    }
+
+    function loadQuality(type, key) {
+        if (!invidiousData || !invidiousData.formats[type] || !invidiousData.formats[type][key]) {
+            return;
+        }
+        
+        const url = invidiousData.formats[type][key];
+        const mimeType = getMimeType(type, key);
+        
+        if (type === 'hls') {
+            // HLSはそのまま流す
+            playerContainer.innerHTML = `<video controls><source src="${url}" type="application/x-mpegURL"></video>`;
+        } else if (type === 'audio') {
+            // 音声のみ
+            playerContainer.innerHTML = `<audio controls style="width: 100%;"><source src="${url}" type="${mimeType}"></audio>`;
+        } else {
+            // MP4と映像
+            playerContainer.innerHTML = `<video controls><source src="${url}" type="${mimeType}"></video>`;
+        }
+        
+        // 選択肢のスタイル更新
+        document.querySelectorAll('.quality-option').forEach(opt => {
+            opt.classList.toggle('selected', opt.textContent === key);
+        });
+    }
+
+    function getMimeType(type, key) {
+        if (key.includes('MP4')) return 'video/mp4';
+        if (key.includes('WEBM')) return 'video/webm';
+        if (key.includes('M4A')) return 'audio/mp4';
+        if (key.includes('WEBM') && (type === 'audio' || key.includes('webm'))) return 'audio/webm';
+        return 'video/mp4';
+    }
+
+    function showError(message) {
+        playerContainer.innerHTML = `
+            <div class="player-error">
+                <div class="error-message-box">
+                    <div class="error-message">${message}</div>
+                    <button class="reload-button" onclick="location.reload()">再読み込み</button>
+                </div>
+            </div>
+        `;
+    }
 </script>
 {% endblock %}
