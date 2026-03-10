@@ -455,7 +455,24 @@
         optionsDiv.innerHTML = '';
         
         const formats = invidiousData.formats[currentQualityType] || {};
-        const keys = Object.keys(formats);
+        let keys = Object.keys(formats);
+        
+        // Sort qualities based on type
+        if (currentQualityType === 'video') {
+            // Sort video by resolution (descending: 1080p, 720p, 480p, etc.)
+            keys.sort((a, b) => {
+                const aRes = parseInt(a) || 0;
+                const bRes = parseInt(b) || 0;
+                return bRes - aRes;
+            });
+        } else if (currentQualityType === 'audio') {
+            // Sort audio by bitrate (descending: highest bitrate first)
+            keys.sort((a, b) => {
+                const aBitrate = parseInt(a) || 0;
+                const bBitrate = parseInt(b) || 0;
+                return bBitrate - aBitrate;
+            });
+        }
         
         keys.forEach((key, index) => {
             const option = document.createElement('button');
@@ -509,10 +526,20 @@
     }
 
     function getMimeType(type, key) {
-        if (key.includes('MP4')) return 'video/mp4';
-        if (key.includes('WEBM')) return 'video/webm';
-        if (key.includes('M4A')) return 'audio/mp4';
-        if (key.includes('WEBM') && (type === 'audio' || key.includes('webm'))) return 'audio/webm';
+        if (type === 'audio') {
+            if (key.includes('M4A') || key.includes('AAC')) return 'audio/mp4';
+            if (key.includes('OPUS') || key.includes('Vorbis')) return 'audio/webm';
+            if (key.includes('MP3')) return 'audio/mpeg';
+            return 'audio/webm';
+        } else if (type === 'video') {
+            if (key.includes('H.264') || key.includes('AVC')) return 'video/mp4';
+            if (key.includes('WebM')) return 'video/webm';
+            return 'video/webm';
+        } else if (type === 'mp4') {
+            return 'video/mp4';
+        } else if (type === 'hls') {
+            return 'application/x-mpegURL';
+        }
         return 'video/mp4';
     }
 
