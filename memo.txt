@@ -1,2 +1,201 @@
-・トレンドの動画について投稿日時や、動画の長さがまだ表示されていないので、修正してほしい。https://github.com/toka-kun/wkt-plus このリポジトリではうまく処理できているので参考にしてもよいかもしれない。・動画の検索結果の時動画の長さはその動画にカーソルを合わせたら表示されるように今はなっているけどもともと表示されるようにしてほしい・動画の投稿日時の表示は、例として2026-03-01/
-7日前　のような表示にしてほしい(○日前のところは状況に応じて○か月前や○年前というようにしてね)
+{% extends "base.html" %}
+
+{% block title %}視聴中 - Choco-Tube{% endblock %}
+
+{% block content %}
+<div class="watch-container" style="display: grid; grid-template-columns: 1fr 340px; gap: 24px; padding: 20px; max-width: 1600px; margin: 0 auto;">
+    <!-- Main content (video + comments) -->
+    <div class="main-content">
+        <!-- Player container -->
+        <div class="player-section" style="margin-bottom: 24px;">
+            <div class="player-wrapper" style="position: relative; width: 100%; padding-top: 56.25%; background: #000; border-radius: 12px; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.8);">
+                <div id="video-player" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%;">
+                    <iframe 
+                        id="player-iframe"
+                        src="https://www.youtube.com/embed/{{ video_id }}?autoplay=1" 
+                        style="width: 100%; height: 100%; border: none;" 
+                        allow="autoplay; encrypted-media" 
+                        allowfullscreen>
+                    </iframe>
+                </div>
+            </div>
+            <!-- Playback method buttons -->
+            <div class="playback-methods" style="display: flex; gap: 8px; margin-top: 16px; flex-wrap: wrap;">
+                <button class="playback-btn" data-method="youtube" style="padding: 8px 16px; background: #065fd4; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px;" onclick="switchPlaybackMethod('youtube')">
+                    YouTube埋め込み
+                </button>
+                <button class="playback-btn" data-method="ytdlp" style="padding: 8px 16px; background: #333; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px;" onclick="switchPlaybackMethod('ytdlp')">
+                    ytdlpストリーム
+                </button>
+                <button class="playback-btn" data-method="invidious" style="padding: 8px 16px; background: #333; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px;" onclick="switchPlaybackMethod('invidious')">
+                    Invidiousストリーム
+                </button>
+                <button class="playback-btn" data-method="nocookie" style="padding: 8px 16px; background: #333; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px;" onclick="switchPlaybackMethod('nocookie')">
+                    nocookie埋め込み
+                </button>
+            </div>
+            <!-- Format options for Invidious (initially hidden) -->
+            <div id="invidious-formats" style="display: none; margin-top: 12px; padding: 12px; background: #f5f5f5; border-radius: 6px;">
+                <div style="font-weight: 600; margin-bottom: 8px; font-size: 14px;">フォーマット選択:</div>
+                <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                    <button class="format-btn" style="padding: 6px 12px; background: #fff; color: #333; border: 1px solid #ddd; border-radius: 4px; cursor: pointer; font-size: 12px;" onclick="switchFormat('mp4')">
+                        MP4
+                    </button>
+                    <button class="format-btn" style="padding: 6px 12px; background: #fff; color: #333; border: 1px solid #ddd; border-radius: 4px; cursor: pointer; font-size: 12px;" onclick="switchFormat('video')">
+                        映像のみ
+                    </button>
+                    <button class="format-btn" style="padding: 6px 12px; background: #fff; color: #333; border: 1px solid #ddd; border-radius: 4px; cursor: pointer; font-size: 12px;" onclick="switchFormat('audio')">
+                        音声のみ
+                    </button>
+                    <button class="format-btn" style="padding: 6px 12px; background: #fff; color: #333; border: 1px solid #ddd; border-radius: 4px; cursor: pointer; font-size: 12px;" onclick="switchFormat('hjs')">
+                        HJS
+                    </button>
+                </div>
+                <div style="margin-top: 12px; padding: 12px; background: #fff; border-radius: 4px; text-align: center; color: #666; font-size: 13px;">
+                    準備中
+                </div>
+            </div>
+        </div>
+        <!-- Video metadata -->
+        <div class="metadata-section" style="padding: 16px; background: #f9f9f9; border-radius: 8px; margin-bottom: 24px;">
+            <h1 style="font-size: 20px; font-weight: 600; margin: 0 0 12px 0;">
+                ビデオタイトル
+            </h1>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                <div style="display: flex; align-items: center; gap: 12px;">
+                    <div style="width: 48px; height: 48px; background: #ddd; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #666; font-weight: 600;">
+                        C
+                    </div>
+                    <div>
+                        <div style="font-weight: 600; font-size: 14px;">チャンネル名</div>
+                        <div style="font-size: 12px; color: #666;">登録者数</div>
+                    </div>
+                </div>
+                <button style="padding: 8px 24px; background: #065fd4; color: white; border: none; border-radius: 20px; cursor: pointer; font-weight: 600;">
+                    登録
+                </button>
+            </div>
+            <div style="display: flex; gap: 16px; font-size: 13px; color: #666; margin-top: 12px;">
+                <span>100万回視聴</span>
+                <span>2024年1月1日</span>
+            </div>
+        </div>
+        <!-- Comments section -->
+        <div class="comments-section" style="border-top: 1px solid #ddd; padding-top: 24px;">
+            <div style="font-size: 18px; font-weight: 600; margin-bottom: 16px;">
+                コメント
+            </div>
+            
+            <!-- Comments input -->
+            <div style="display: flex; gap: 12px; margin-bottom: 24px;">
+                <div style="width: 40px; height: 40px; background: #ddd; border-radius: 50%; flex-shrink: 0;"></div>
+                <div style="flex: 1;">
+                    <input type="text" placeholder="コメントを追加..." style="width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px; box-sizing: border-box;">
+                    <div style="margin-top: 8px; padding: 12px; background: #f5f5f5; border-radius: 4px; text-align: center; color: #666; font-size: 13px;">
+                        準備中
+                    </div>
+                </div>
+            </div>
+            <!-- Comments list -->
+            <div id="comments-list">
+                <div style="padding: 20px; text-align: center; color: #999; font-size: 14px;">
+                    準備中
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- Sidebar (related videos) -->
+    <aside class="sidebar" style="background: #f9f9f9; padding: 16px; border-radius: 8px; height: fit-content;">
+        <div style="font-size: 14px; font-weight: 600; margin-bottom: 16px;">
+            関連動画
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 12px;">
+            <!-- Related video item 1 -->
+            <div style="display: flex; gap: 8px; cursor: pointer;">
+                <div style="width: 100px; height: 56px; background: #ddd; border-radius: 4px; flex-shrink: 0;"></div>
+                <div style="flex: 1; min-width: 0;">
+                    <div style="font-size: 12px; font-weight: 500; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; line-height: 1.4;">
+                        関連動画のタイトル
+                    </div>
+                    <div style="font-size: 11px; color: #666; margin-top: 4px;">チャンネル名</div>
+                    <div style="font-size: 11px; color: #999;">100万回視聴</div>
+                </div>
+            </div>
+            <!-- Related video item 2 -->
+            <div style="display: flex; gap: 8px; cursor: pointer;">
+                <div style="width: 100px; height: 56px; background: #ddd; border-radius: 4px; flex-shrink: 0;"></div>
+                <div style="flex: 1; min-width: 0;">
+                    <div style="font-size: 12px; font-weight: 500; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; line-height: 1.4;">
+                        関連動画のタイトル
+                    </div>
+                    <div style="font-size: 11px; color: #666; margin-top: 4px;">チャンネル名</div>
+                    <div style="font-size: 11px; color: #999;">100万回視聴</div>
+                </div>
+            </div>
+            <!-- Related video item 3 -->
+            <div style="display: flex; gap: 8px; cursor: pointer;">
+                <div style="width: 100px; height: 56px; background: #ddd; border-radius: 4px; flex-shrink: 0;"></div>
+                <div style="flex: 1; min-w-0;">
+                    <div style="font-size: 12px; font-weight: 500; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; line-height: 1.4;">
+                        関連動画のタイトル
+                    </div>
+                    <div style="font-size: 11px; color: #666; margin-top: 4px;">チャンネル名</div>
+                    <div style="font-size: 11px; color: #999;">100万回視聴</div>
+                </div>
+            </div>
+        </div>
+    </aside>
+</div>
+<script>
+function switchPlaybackMethod(method) {
+    // Update button styles
+    document.querySelectorAll('.playback-btn').forEach(btn => {
+        if (btn.dataset.method === method) {
+            btn.style.background = '#065fd4';
+        } else {
+            btn.style.background = '#333';
+        }
+    });
+    // Show/hide format options
+    const formatsDiv = document.getElementById('invidious-formats');
+    if (method === 'invidious') {
+        formatsDiv.style.display = 'block';
+    } else {
+        formatsDiv.style.display = 'none';
+    }
+    // Update player (currently shows "準備中" for non-YouTube methods)
+    const playerDiv = document.getElementById('video-player');
+    if (method === 'youtube') {
+        playerDiv.innerHTML = `<iframe 
+            id="player-iframe"
+            src="https://www.youtube.com/embed/{{ video_id }}?autoplay=1" 
+            allow="autoplay; encrypted-media" 
+            allowfullscreen>
+        </iframe>`;
+    } else {
+        playerDiv.innerHTML = `<div style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: #000; color: white; font-size: 18px;">準備中</div>`;
+    }
+}
+function switchFormat(format) {
+    console.log('Format selected:', format);
+    // Format switching functionality - to be implemented
+}
+</script>
+<style>
+@media (max-width: 1024px) {
+    .watch-container {
+        grid-template-columns: 1fr !important;
+    }
+    
+    .sidebar {
+        grid-column: 1 / -1 !important;
+    }
+}
+button {
+    transition: all 0.2s ease;
+}
+button:hover {
+    opacity: 0.9;
+}
+</style>
+{% endblock %}
