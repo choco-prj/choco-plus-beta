@@ -57,6 +57,51 @@ def get_proxy_thumbnail(video_id, proxy_type="wsrv.nl"):
         return f"https://wsrv.nl/?url=https://i.ytimg.com/vi/{video_id}/hqdefault.jpg"
     return f"https://img.youtube.com/vi/{video_id}/hqdefault.jpg"
 
+def search_invidious(query, page=1, proxy_type="img.youtube.com", search_type="video"):
+    instances = INVIDIOUS_INSTANCES.copy()
+    random.shuffle(instances)
+    for instance in instances:
+        url = f"{instance}/api/v1/search?q={query}&type={search_type}&page={page}"
+        try:
+            response = requests.get(url, timeout=5)
+            if response.status_code == 200:
+                data = response.json()
+                results = []
+                for item in data:
+                    try:
+                        if search_type == "channel":
+                            results.append({
+                                'id': item['authorId'],
+                                'title': item['author'],
+                                'thumbnail': item.get('authorThumbnails', [{}])[0].get('url', ''),
+                                'type': 'channel',
+                                'description': item.get('description', '')
+                            })
+                        else:
+                            v_id = item.get('videoId', '')
+                            if not v_id:
+                                continue
+                            view_count = item.get('viewCount', 0)
+                            results.append({
+                                'id': v_id,
+                                'title': item.get('title', 'Untitled'),
+                                'thumbnail': get_proxy_thumbnail(v_id, proxy_type),
+                                'channel': item.get('author', 'Unknown Channel'),
+                                'channel_id': item.get('authorId', ''),
+                                'type': 'video',
+                                'views': format_view_count(view_count) if view_count else 'N/A',
+                                'published_at': item.get('publishedText', '')
+                            })
+                    except Exception as e:
+                        logger.debug(f"Error parsing search item: {e}")
+                        continue
+                return results, page + 1
+        except Exception as e:
+            logger.debug(f"Invidious error {instance}: {e}")
+            continue
+    logger.warning(f"All Invidious instances failed for query: {query}")
+    return None, None
+
 def parse_iso8601_duration(duration_str):
     """Parse ISO 8601 duration (e.g., PT1H23M45S) to readable format (1:23:45 or 23:45)"""
     if not duration_str:
@@ -136,75 +181,15 @@ def search_youtube(query, page_token=None, proxy_type="img.youtube.com", search_
                                     duration = item.get('contentDetails', {}).get('duration', '')
                                     result['duration'] = parse_iso8601_duration(duration)
                     except Exception as e:
-                        print(f"Error fetching video stats: {e}")
-                
+                        logger.debug(f"Error fetching video stats: {e}")
+
                 return results, data.get('nextPageToken')
         except Exception as e:
-            print(f"YouTube API error with key {key[:10]}...: {e}")
+            logger.debug(f"YouTube API error with key {key[:10]}...: {e}")
             continue
-    print(f"All YouTube API keys failed for query: {query}")
+    logger.warning(f"All YouTube API keys failed for query: {query}")
     return None, None
 
-def search_invidious(query, page=1, proxy_type="img.youtube.com", search_type="video"):
-    instances = INVIDIOUS_INSTANCES.copy()
-    random.shuffle(instances)
-    for instance in instances:
-        url = f"{instance}/api/v1/search?q={query}&type={search_type}&page={page}"
-        try:
-            response = requests.get(url, timeout=5)
-            if response.status_code == 200:
-                data = response.json()
-                results = []
-                for item in data:
-                    try:
-                        if search_type == "channel":
-                            results.append({
-                                'id': item['authorId'],
-                                'title': item['author'],
-                                'thumbnail': item.get('authorThumbnails', [{}])[0].get('url', ''),
-                                'type': 'channel',
-                                'description': item.get('description', '')
-                            })
-                        else:
-                            v_id = item.get('videoId', '')
-                            if not v_id:
-                                continue
-                            published_at = item.get('publishedText', '')
-                            
-                            # Parse view count with proper type handling
-                            views = 'N/A'
-                            view_count = item.get('viewCount')
-                            if view_count is not None:
-                                try:
-                                    view_int = int(view_count)
-                                    if view_int >= 1000000:
-                                        views = f"{view_int/1000000:.1f}M"
-                                    elif view_int >= 1000:
-                                        views = f"{view_int/1000:.1f}K"
-                                    else:
-                                        views = str(view_int)
-                                except (ValueError, TypeError):
-                                    views = 'N/A'
-                            
-                            results.append({
-                                'id': v_id,
-                                'title': item.get('title', 'Untitled'),
-                                'thumbnail': get_proxy_thumbnail(v_id, proxy_type),
-                                'channel': item.get('author', 'Unknown Channel'),
-                                'channel_id': item.get('authorId', ''),
-                                'type': 'video',
-                                'views': views,
-                                'published_at': published_at
-                            })
-                    except Exception as e:
-                        print(f"Error parsing search item: {e}")
-                        continue
-                return results, page + 1
-        except Exception as e:
-            print(f"Invidious error {instance}: {e}")
-            continue
-    print(f"All Invidious instances failed for query: {query}")
-    return None, None
 
 @app.route('/')
 def index():
@@ -350,10 +335,10 @@ def get_japan_trend_by_category(category='all', proxy_type='self-hosted'):
                                         result['views'] = str(view_count)
                             break
                     except Exception as e:
-                        print(f"Error fetching JP trend stats: {e}")
+                        logger.debug(f"Error fetching JP trend stats: {e}")
                         continue
     except Exception as e:
-        print(f"Error fetching JP trend (category={category}): {e}")
+        logger.warning(f"Error fetching JP trend (category={category}): {e}")
         pass
     
     return results
@@ -389,52 +374,26 @@ def trend():
                                 continue
                             video_ids.append(v_id)
                             
-                            # Get duration from lengthSeconds - Invidious may provide this as int
-                            duration = ''
                             length_seconds = item.get('lengthSeconds')
-                            if length_seconds:
-                                try:
-                                    length_int = int(length_seconds)
-                                    if length_int > 0:
-                                        duration = format_time_seconds(length_int)
-                                except (ValueError, TypeError):
-                                    duration = ''
-                            
-                            # Get view count - Invidious may not always provide this
-                            views = 'N/A'
-                            view_count = item.get('viewCount')
-                            if view_count is not None:
-                                try:
-                                    view_int = int(view_count)
-                                    if view_int >= 1000000:
-                                        views = f"{view_int/1000000:.1f}M"
-                                    elif view_int >= 1000:
-                                        views = f"{view_int/1000:.1f}K"
-                                    else:
-                                        views = str(view_int)
-                                except (ValueError, TypeError):
-                                    views = 'N/A'
-                            
-                            # Get published date - use publishedText
-                            published_at = item.get('publishedText', '')
-                            
+                            duration = format_time_seconds(length_seconds) if length_seconds else ''
+                            view_count = item.get('viewCount', 0)
                             results.append({
                                 'id': v_id,
                                 'title': item.get('title', 'Untitled'),
                                 'thumbnail': get_proxy_thumbnail(v_id, proxy_type),
                                 'channel': item.get('author', 'Unknown Channel'),
                                 'duration': duration,
-                                'views': views,
-                                'published_at': published_at
+                                'views': format_view_count(view_count) if view_count else 'N/A',
+                                'published_at': item.get('publishedText', '')
                             })
                         except KeyError as e:
-                            print(f"Error parsing trend item: {e}")
+                            logger.debug(f"Error parsing trend item: {e}")
                             continue
                     break
             except Exception as e:
-                print(f"Error fetching from {instance}: {e}")
+                logger.warning(f"Error fetching from {instance}: {e}")
                 continue
-    
+
     flask_response = make_response(render_template('trend.html', results=results, region=region, proxy_type=proxy_type, date_format=date_format, jp_category=jp_category))
     flask_response.set_cookie('proxy_type', proxy_type, max_age=2592000)
     flask_response.set_cookie('date_format', date_format, max_age=2592000)
@@ -489,6 +448,81 @@ def fetch_stream_from_api(api_url, video_id):
     return None
 
 
+@app.route('/api/invidious-stream/<video_id>')
+def invidious_stream(video_id):
+    """全Invidiousインスタンスに並行リクエストして最速レスポンスの動画フォーマットを返す"""
+    formats = {'mp4': {}, 'video': {}, 'audio': {}, 'hls': {}}
+
+    def fetch_from_instance(instance):
+        try:
+            response = requests.get(
+                f"{instance}/api/v1/videos/{video_id}",
+                timeout=10
+            )
+            if response.status_code != 200:
+                return None
+            data = response.json()
+            result = {'mp4': {}, 'video': {}, 'audio': {}, 'hls': {}}
+
+            for fmt in data.get('formatStreams', []):
+                quality = fmt.get('qualityLabel', '')
+                url = fmt.get('url', '')
+                codec = fmt.get('codec', '')
+                if url and codec and 'mp4' in codec.lower():
+                    label = quality.split(' ')[0] if quality else 'unknown'
+                    result['mp4'][f"{label} (MP4)"] = url
+
+            if data.get('hlsUrl'):
+                result['hls']['HLS'] = data['hlsUrl']
+
+            for fmt in data.get('adaptiveFormats', []):
+                url = fmt.get('url', '')
+                codec = fmt.get('codec', '')
+                quality = fmt.get('qualityLabel', '')
+                bitrate = fmt.get('bitrate', '')
+                if not url or not codec:
+                    continue
+                codec_lower = codec.lower()
+                if any(vc in codec_lower for vc in ['vp9', 'vp8', 'av1', 'h264', 'h265', 'avc1']):
+                    q = quality.split(' ')[0] if quality else 'unknown'
+                    codec_label = 'WebM' if any(x in codec_lower for x in ['vp9', 'vp8', 'av1']) else 'H.264'
+                    result['video'][f"{q} ({codec_label})"] = url
+                elif any(ac in codec_lower for ac in ['opus', 'aac', 'mp4a', 'vorbis', 'mp3']):
+                    br = str(bitrate).split('.')[0] if bitrate else 'unknown'
+                    if 'opus' in codec_lower:
+                        label = f"{br} kbps (Opus)"
+                    elif 'aac' in codec_lower or 'mp4a' in codec_lower:
+                        label = f"{br} kbps (AAC)"
+                    elif 'vorbis' in codec_lower:
+                        label = f"{br} kbps (Vorbis)"
+                    else:
+                        label = f"{br} kbps ({codec})"
+                    result['audio'][label] = url
+
+            if any(result.values()):
+                return result
+        except Exception as e:
+            logger.debug(f"Invidious stream error ({instance}): {e}")
+        return None
+
+    instances = INVIDIOUS_INSTANCES.copy()
+    random.shuffle(instances)
+    with ThreadPoolExecutor(max_workers=len(instances)) as executor:
+        futures = {executor.submit(fetch_from_instance, inst): inst for inst in instances}
+        for future in as_completed(futures, timeout=10):
+            try:
+                result = future.result(timeout=1)
+                if result and any(result.values()):
+                    formats = result
+                    break
+            except Exception:
+                continue
+
+    if any(formats.values()):
+        return jsonify({'success': True, 'formats': formats})
+    return jsonify({'success': False, 'error': 'ストリームの取得に失敗しました'}), 503
+
+
 @app.route('/api/stream/<video_id>')
 def get_stream(video_id):
     """Fetch stream URL from multiple APIs in parallel"""
@@ -518,124 +552,6 @@ def get_stream(video_id):
     else:
         return jsonify({'error': 'Could not fetch stream'}), 503
 
-@app.route('/api/invidious-stream/<video_id>')
-def invidious_stream(video_id):
-    """Fetch video formats from multiple invidious instances in parallel"""
-    formats = {
-        'mp4': {},
-        'video': {},
-        'audio': {},
-        'hls': {}
-    }
-
-    def fetch_from_invidious(instance):
-        try:
-            url = f"{instance}/api/v1/videos/{video_id}"
-            response = requests.get(url, timeout=15)
-            if response.status_code == 200:
-                data = response.json()
-                video_formats = {
-                    'mp4': {},
-                    'video': {},
-                    'audio': {},
-                    'hls': {}
-                }
-
-                # Handle formatStreams (MP4 with audio)
-                for fmt in data.get('formatStreams', []):
-                    quality = fmt.get('qualityLabel', '')
-                    url_key = fmt.get('url', '')
-                    codec = fmt.get('codec', '')
-
-                    if url_key and codec and 'mp4' in codec.lower():
-                        quality_label = quality.split(' ')[0] if quality else 'unknown'
-                        video_formats['mp4'][f"{quality_label} (MP4)"] = url_key
-
-                # Handle HLS
-                if data.get('hlsUrl'):
-                    video_formats['hls']['HLS'] = data.get('hlsUrl')
-
-                # Handle adaptiveFormats (video-only and audio-only)
-                for fmt in data.get('adaptiveFormats', []):
-                    url_key = fmt.get('url', '')
-                    codec = fmt.get('codec', '')
-                    quality = fmt.get('qualityLabel', '')
-                    bitrate = fmt.get('bitrate', '')
-
-                    if not url_key or not codec:
-                        continue
-
-                    codec_lower = codec.lower()
-                    
-                    # Detect video-only streams
-                    if any(vc in codec_lower for vc in ['vp9', 'vp8', 'av1', 'h264', 'h265', 'avc1']):
-                        if quality:
-                            q = quality.split(' ')[0]
-                        else:
-                            q = 'unknown'
-                        codec_label = 'WebM' if any(x in codec_lower for x in ['vp9', 'vp8', 'av1']) else 'H.264'
-                        quality_label = f"{q} ({codec_label})"
-                        video_formats['video'][quality_label] = url_key
-                    
-                    # Detect audio-only streams
-                    elif any(ac in codec_lower for ac in ['opus', 'aac', 'mp4a', 'vorbis', 'mp3']):
-                        if bitrate:
-                            br = str(bitrate).split('.')[0]
-                        else:
-                            br = 'unknown'
-                        
-                        if 'opus' in codec_lower:
-                            quality_label = f"{br} kbps (Opus)"
-                        elif 'aac' in codec_lower or 'mp4a' in codec_lower:
-                            quality_label = f"{br} kbps (AAC)"
-                        elif 'vorbis' in codec_lower:
-                            quality_label = f"{br} kbps (Vorbis)"
-                        else:
-                            quality_label = f"{br} kbps ({codec})"
-                        
-                        video_formats['audio'][quality_label] = url_key
-
-                # Only return if we have at least some formats
-                if any([video_formats['mp4'], video_formats['video'], video_formats['audio'], video_formats['hls']]):
-                    logger.info(f"Success from {instance}: MP4={len(video_formats['mp4'])}, Video={len(video_formats['video'])}, Audio={len(video_formats['audio'])}")
-                    return video_formats
-                    
-        except requests.Timeout:
-            logger.warning(f"Timeout: {instance}")
-        except requests.ConnectionError:
-            logger.warning(f"Connection error: {instance}")
-        except Exception as e:
-            logger.debug(f"Error from {instance}: {str(e)[:50]}")
-        return None
-
-    with ThreadPoolExecutor(max_workers=len(INVIDIOUS_INSTANCES)) as executor:
-        futures = {
-            executor.submit(fetch_from_invidious, inst): inst
-            for inst in INVIDIOUS_INSTANCES
-        }
-
-        for future in as_completed(futures, timeout=20):
-            try:
-                result = future.result(timeout=2)
-                if result and (result['mp4'] or result['video'] or
-                               result['audio'] or result['hls']):
-                    formats = result
-                    break
-            except TimeoutError:
-                instance = futures.get(future, 'unknown')
-                logger.warning(f"Future timeout for instance {instance}")
-            except Exception as e:
-                instance = futures.get(future, 'unknown')
-                logger.warning(f"Error from instance {instance}: {e}")
-
-    if (formats['mp4'] or formats['video'] or
-            formats['audio'] or formats['hls']):
-        return jsonify({
-            'success': True,
-            'formats': formats
-        })
-    else:
-        return jsonify({'success': False}), 503
 
 
 @app.route('/watch/<video_id>')
@@ -874,7 +790,7 @@ def channel(channel_id):
                         channel_source = 'youtube'
                         break
             except Exception as e:
-                print(f"Error fetching channel info: {e}")
+                logger.debug(f"Error fetching channel info: {e}")
                 continue
         
         # Fallback to Invidious if YouTube API fails
@@ -890,9 +806,9 @@ def channel(channel_id):
                         channel_source = 'invidious'
                         break
                 except Exception as e:
-                    print(f"Invidious channel error: {e}")
+                    logger.debug(f"Invidious channel error: {e}")
                     continue
-        
+
         # Fetch videos using uploads playlist
         uploads_playlist_id = None
         if channel_source == 'youtube' and channel_data:
@@ -925,7 +841,7 @@ def channel(channel_id):
                                 'is_short': False
                             })
                         except KeyError as e:
-                            print(f"Error parsing video item: {e}")
+                            logger.debug(f"Error parsing video item: {e}")
                             continue
                     
                     # Fetch video details to get duration and statistics
@@ -947,10 +863,10 @@ def channel(channel_id):
                                         view_count = details_map[video['id']].get('statistics', {}).get('viewCount', '0')
                                         video['views'] = format_view_count(view_count)
                         except Exception as e:
-                            print(f"Error fetching video details: {e}")
+                            logger.debug(f"Error fetching video details: {e}")
                     break
             except Exception as e:
-                print(f"Error fetching channel videos: {e}")
+                logger.debug(f"Error fetching channel videos: {e}")
                 continue
         
         # If YouTube API videos fetch failed, try Invidious
@@ -978,13 +894,13 @@ def channel(channel_id):
                                         'is_short': int(length) <= 60
                                     })
                             except Exception as e:
-                                print(f"Error parsing invidious video: {e}")
+                                logger.debug(f"Error parsing invidious video: {e}")
                                 continue
                         break
                 except Exception as e:
-                    print(f"Invidious videos error: {e}")
+                    logger.debug(f"Invidious videos error: {e}")
                     continue
-        
+
         # Separate videos and shorts
         for video in all_videos:
             if video['is_short']:
@@ -992,7 +908,6 @@ def channel(channel_id):
             else:
                 videos.append(video)
         
-        # Process channel data
         if channel_data:
             channel = {}
             if channel_source == 'youtube':
@@ -1013,8 +928,7 @@ def channel(channel_id):
                         if view:
                             channel['totalViews'] = int(view)
                 except Exception as e:
-                    print(f"Error processing YouTube channel data: {e}")
-            
+                    logger.error(f"Error processing YouTube channel data: {e}")
             elif channel_source == 'invidious':
                 try:
                     channel['channelName'] = channel_data.get('author', 'Unknown')
@@ -1027,13 +941,10 @@ def channel(channel_id):
                     if sub_count:
                         channel['subscribers'] = int(sub_count)
                 except Exception as e:
-                    print(f"Error processing Invidious channel data: {e}")
-    
+                    logger.error(f"Error processing Invidious channel data: {e}")
     except Exception as e:
-        print(f"Unexpected error in channel route: {e}")
-        import traceback
-        traceback.print_exc()
-    
+        logger.error(f"Unexpected error in channel route: {e}", exc_info=True)
+
     date_format = request.cookies.get('date_format', 'ago')
     return render_template('channel.html', channel=channel, videos=videos, shorts=shorts, date_format=date_format)
 
@@ -1086,7 +997,7 @@ def channel_more(channel_id):
                             pass
                     break
             except Exception as e:
-                print(f"Error fetching more videos: {e}")
+                logger.debug(f"Error fetching more videos: {e}")
                 continue
         
         # Filter by type
@@ -1099,7 +1010,7 @@ def channel_more(channel_id):
         
         return jsonify({'videos': result_videos})
     except Exception as e:
-        print(f"Error in channel_more: {e}")
+        logger.error(f"Error in channel_more: {e}")
         return jsonify({'videos': []})
 
 # Register Jinja2 filters
